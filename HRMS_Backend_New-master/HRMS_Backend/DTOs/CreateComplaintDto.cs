@@ -8,10 +8,12 @@ namespace HRMS_Backend.DTOs
     {
         [Required(ErrorMessage = "مطلوب كتابة محتوى الشكوى")]
         public string Content { get; set; }
+        public bool IsAnonymous { get; set; }
 
-        public int? DepartmentId { get; set; }
-        public bool IsForAllDepartments { get; set; }
-        public IFormFile? File { get; set; } // اختياري
+        public int? DepartmentId { get; set; }  // لو الشكوى لإدارة معينة
+        public bool IsForAllDepartments { get; set; }  // لو الشكوى لجميع الإدارات
+
+        public IFormFile? File { get; set; } // نفس الاسم المستخدم في الـ controller
     }
 
     public class ManagerDecisionDto

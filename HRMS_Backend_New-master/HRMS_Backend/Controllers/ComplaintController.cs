@@ -5,6 +5,8 @@ using HRMS_Backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace HRMS_Backend.Controllers
 {
@@ -13,23 +15,63 @@ namespace HRMS_Backend.Controllers
     public class ComplaintController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _config;
 
-        public ComplaintController(ApplicationDbContext context)
+        public ComplaintController(ApplicationDbContext context, IConfiguration config)
         {
             _context = context;
+            _config = config;
+        }
+
+        // =========================
+        // تشفير وفك تشفير النص (IV ثابت) - أبسط طريقة
+        // =========================
+        private string EncryptContent(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return content;
+
+            using var aes = Aes.Create();
+            aes.Key = Encoding.UTF8.GetBytes(_config["AESKey"]); // المفتاح من appsettings
+            aes.IV = new byte[16]; // IV ثابت
+            using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+            var bytes = Encoding.UTF8.GetBytes(content);
+            var encrypted = encryptor.TransformFinalBlock(bytes, 0, bytes.Length);
+            return Convert.ToBase64String(encrypted);
+        }
+
+        private string DecryptContent(string encrypted)
+        {
+            if (string.IsNullOrEmpty(encrypted)) return encrypted;
+
+            using var aes = Aes.Create();
+            aes.Key = Encoding.UTF8.GetBytes(_config["AESKey"]);
+            aes.IV = new byte[16];
+            using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+            var bytes = Convert.FromBase64String(encrypted);
+            var decrypted = decryptor.TransformFinalBlock(bytes, 0, bytes.Length);
+            return Encoding.UTF8.GetString(decrypted);
         }
 
         // =========================
         // CREATE COMPLAINT
         // =========================
-        [Authorize(Roles = "Employee,DepartmentManager,SubDepartmentManager,SectionManager")]
+        [AllowAnonymous]
         [HttpPost("create")]
         public IActionResult CreateComplaint([FromForm] CreateComplaintDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int employeeId = int.Parse(User.FindFirst("EmployeeId")?.Value);
+            int? employeeId = null;
+
+            if (!dto.IsAnonymous)
+            {
+                var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+                if (string.IsNullOrEmpty(employeeIdClaim))
+                    return Unauthorized("يجب تسجيل الدخول أو اختيار شكوى مجهولة");
+
+                employeeId = int.Parse(employeeIdClaim);
+            }
 
             if (dto.DepartmentId == null && !dto.IsForAllDepartments)
                 return BadRequest("يجب اختيار إدارة أو جميع الإدارات");
@@ -37,12 +79,37 @@ namespace HRMS_Backend.Controllers
             if (dto.DepartmentId != null && dto.IsForAllDepartments)
                 return BadRequest("لا يمكن اختيار الاثنين معاً");
 
+            string? attachmentPath = null;
+            if (dto.File != null)
+            {
+                var allowedExtensions = new[] { ".pdf", ".png", ".jpeg", ".jpg" };
+                var ext = Path.GetExtension(dto.File.FileName).ToLower();
+                if (!allowedExtensions.Contains(ext))
+                    return BadRequest("نوع الملف غير مسموح");
+
+                var allowedMimeTypes = new[] { "application/pdf", "image/png", "image/jpeg" };
+                if (!allowedMimeTypes.Contains(dto.File.ContentType.ToLower()))
+                    return BadRequest("نوع الملف غير مسموح");
+
+                var folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "attachments");
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+                var fileName = $"{Guid.NewGuid()}{ext}";
+                var fullPath = Path.Combine(folder, fileName);
+
+                using var stream = new FileStream(fullPath, FileMode.Create);
+                dto.File.CopyTo(stream);
+
+                attachmentPath = $"/attachments/{fileName}";
+            }
+
             var complaint = new Complaint
             {
                 EmployeeId = employeeId,
                 DepartmentId = dto.DepartmentId,
                 IsForAllDepartments = dto.IsForAllDepartments,
-                Content = dto.Content,
+                Content = EncryptContent(dto.Content),
+                AttachmentPath = attachmentPath,
                 Status = ComplaintStatus.تحت_المراجعة,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
@@ -51,15 +118,12 @@ namespace HRMS_Backend.Controllers
             _context.Complaints.Add(complaint);
             _context.SaveChanges();
 
-            // =======================
-            // إرسال الإشعارات
-            // =======================
-
+            // إشعارات للمديرين
             if (dto.IsForAllDepartments)
             {
                 var managers = _context.Departments
                     .Where(d => d.ManagerEmployeeId != null)
-                    .Select(d => d.ManagerEmployeeId.Value)
+                    .Select(d => d.ManagerEmployeeId!.Value)
                     .ToList();
 
                 foreach (var managerId in managers)
@@ -77,14 +141,12 @@ namespace HRMS_Backend.Controllers
                     }
                 }
             }
-            else
+            else if (dto.DepartmentId != null)
             {
                 var department = _context.Departments.Find(dto.DepartmentId);
-
                 if (department?.ManagerEmployeeId != null)
                 {
                     var manager = _context.Employees.Find(department.ManagerEmployeeId);
-
                     if (manager != null)
                     {
                         _context.Notifications.Add(new Notification
@@ -110,54 +172,86 @@ namespace HRMS_Backend.Controllers
         [HttpGet("my")]
         public IActionResult MyComplaints()
         {
-            int employeeId = int.Parse(User.FindFirst("EmployeeId")?.Value);
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim))
+                return Unauthorized();
+
+            int employeeId = int.Parse(employeeIdClaim);
 
             var complaints = _context.Complaints
                 .Include(c => c.Department)
                 .Where(c => c.EmployeeId == employeeId)
                 .OrderByDescending(c => c.CreatedAt)
+                .AsEnumerable()
+                .Select(c => new
+                {
+                    c.Id,
+                    c.DepartmentId,
+                    DepartmentName = c.Department?.Name,
+                    Content = DecryptContent(c.Content),
+                    c.AttachmentPath,
+                    c.Status,
+                    c.Notes,
+                    c.CreatedAt,
+                    c.UpdatedAt
+                })
                 .ToList();
 
             return Ok(complaints);
         }
 
         // =========================
-        // GET COMPLAINTS FOR MANAGER
+        // GET ALL COMPLAINTS FOR MANAGER
         // =========================
-        [Authorize(Roles = "DepartmentManager,SubDepartmentManager,SectionManager")]
         [HttpGet("all")]
-        public IActionResult GetAllComplaintsForManager()
+        [Authorize(Roles = "DepartmentManager,Employee,HR,SuperAdmin")]
+        public async Task<IActionResult> GetAllComplaints()
         {
-            int managerId = int.Parse(User.FindFirst("EmployeeId")?.Value);
-
-            var complaints = _context.Complaints
+            // جلب البيانات أولاً من قاعدة البيانات
+            var complaints = await _context.Complaints
                 .Include(c => c.Employee)
-                    .ThenInclude(e => e.AdministrativeData)
                 .Include(c => c.Department)
-                .Where(c =>
-
-                    // إدارة معينة → كل التسلسل يشوف
-                    (!c.IsForAllDepartments &&
-                        (
-                            c.Employee.AdministrativeData.Section.ManagerEmployeeId == managerId ||
-                            c.Employee.AdministrativeData.SubDepartment.ManagerEmployeeId == managerId ||
-                            c.Employee.AdministrativeData.Department.ManagerEmployeeId == managerId
-                        )
-                    )
-
-                    ||
-
-                    // جميع الإدارات → فقط مدراء الإدارات
-                    (c.IsForAllDepartments &&
-                        _context.Departments
-                            .Any(d => d.ManagerEmployeeId == managerId)
-                    )
-                )
                 .OrderByDescending(c => c.CreatedAt)
-                .ToList();
+                .ToListAsync();
 
-            return Ok(complaints);
+            // بعد ما البيانات في الذاكرة، نفك التشفير ونجهز الـ DTO
+            var result = complaints.Select(c => new
+            {
+                c.Id,
+                Content = DecryptContent(c.Content),
+
+                Status = c.Status,
+                Notes = c.Notes,
+                c.AttachmentPath,
+                c.CreatedAt,
+                c.UpdatedAt,
+                DepartmentId = c.DepartmentId,
+                DepartmentName = c.IsForAllDepartments
+                                    ? "كل الأقسام"
+                                    : (c.Department != null ? c.Department.Name : "-"),
+                EmployeeName = c.Employee != null && !c.IsAnonymous ? c.Employee.FullName : "من مجهول"
+            }).ToList();
+
+            return Ok(result);
         }
+
+        // دالة فك التشفير
+        private static string Decrypt(string cipherText)
+        {
+            if (string.IsNullOrEmpty(cipherText)) return "";
+            try
+            {
+                var bytes = Convert.FromBase64String(cipherText);
+                return System.Text.Encoding.UTF8.GetString(bytes);
+            }
+            catch
+            {
+                return cipherText;
+            }
+        }
+
+
+
 
         // =========================
         // MANAGER DECISION
@@ -166,40 +260,25 @@ namespace HRMS_Backend.Controllers
         [HttpPost("{id}/manager-decision")]
         public IActionResult ManagerDecision(int id, [FromBody] ManagerDecisionDto dto)
         {
-            int managerId = int.Parse(User.FindFirst("EmployeeId")?.Value);
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim))
+                return Unauthorized();
 
-            var complaint = _context.Complaints
-                .Include(c => c.Department)
-                .FirstOrDefault(c => c.Id == id);
+            int managerId = int.Parse(employeeIdClaim);
 
-            if (complaint == null)
-                return NotFound("الشكوى غير موجودة");
+            var complaint = _context.Complaints.Include(c => c.Department)
+                                              .FirstOrDefault(c => c.Id == id);
+            if (complaint == null) return NotFound("الشكوى غير موجودة");
 
-            // ===============================
-            // حالة إدارة معينة
-            // ===============================
-            if (!complaint.IsForAllDepartments)
-            {
-                // فقط مدير الإدارة يغير الحالة
-                if (complaint.Department?.ManagerEmployeeId != managerId)
-                    return Forbid("ليس لديك صلاحية تغيير حالة هذه الشكوى");
-            }
+            // صلاحية المدير
+            if (!complaint.IsForAllDepartments && complaint.Department?.ManagerEmployeeId != managerId)
+                return Forbid("ليس لديك صلاحية تغيير حالة هذه الشكوى");
 
-            // ===============================
-            // حالة جميع الإدارات
-            // ===============================
-            if (complaint.IsForAllDepartments)
-            {
-                // أول مدير يحجزها
-                if (complaint.HandledByManagerId == null)
-                {
-                    complaint.HandledByManagerId = managerId;
-                }
-                else if (complaint.HandledByManagerId != managerId)
-                {
-                    return BadRequest("الشكوى قيد المعالجة من إدارة أخرى");
-                }
-            }
+            if (complaint.IsForAllDepartments && complaint.HandledByManagerId != null && complaint.HandledByManagerId != managerId)
+                return BadRequest("الشكوى قيد المعالجة من إدارة أخرى");
+
+            if (complaint.IsForAllDepartments && complaint.HandledByManagerId == null)
+                complaint.HandledByManagerId = managerId;
 
             complaint.Status = dto.Status;
             complaint.Notes = dto.Notes;
@@ -211,13 +290,28 @@ namespace HRMS_Backend.Controllers
                 .Select(e => e.UserId)
                 .FirstOrDefault();
 
-            _context.Notifications.Add(new Notification
+            // إشعار للموظف فقط إذا كان هناك موظف معروف
+            // إشعار للموظف فقط إذا كان هناك موظف معروف
+            if (complaint.EmployeeId != null)
             {
-                UserId = employeeUserId,
-                Title = "تم تحديث شكواك",
-                Message = $"حالة الشكوى: {complaint.Status}",
-                CreatedAt = DateTime.Now
-            });
+                var userIdToNotify = _context.Employees
+                    .Where(e => e.Id == complaint.EmployeeId)
+                    .Select(e => e.UserId)
+                    .FirstOrDefault();
+
+                if (userIdToNotify != null)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        UserId = userIdToNotify,
+                        Title = "تم تحديث شكواك",
+                        Message = $"حالة الشكوى: {complaint.Status}",
+                        CreatedAt = DateTime.Now
+                    });
+                }
+            }
+
+
 
             _context.SaveChanges();
 
@@ -231,16 +325,15 @@ namespace HRMS_Backend.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteComplaint(int id)
         {
-            int employeeId = int.Parse(User.FindFirst("EmployeeId")?.Value);
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim))
+                return Unauthorized();
+
+            int employeeId = int.Parse(employeeIdClaim);
 
             var complaint = _context.Complaints.Find(id);
-
-            if (complaint == null)
-                return NotFound("الشكوى غير موجودة");
-
-            if (complaint.EmployeeId != employeeId)
-                return Forbid("لا يمكنك حذف شكوى لا تخصك");
-
+            if (complaint == null) return NotFound("الشكوى غير موجودة");
+            if (complaint.EmployeeId != employeeId) return Forbid("لا يمكنك حذف شكوى لا تخصك");
             if (complaint.Status != ComplaintStatus.تحت_المراجعة)
                 return BadRequest("لا يمكن حذف الشكوى بعد تغيير حالتها");
 
