@@ -1,9 +1,10 @@
-﻿using System.Security.Claims;
-using System.Text;
-using HRMS_Backend.Data;
+﻿using HRMS_Backend.Data;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -72,7 +73,7 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader();
         });
 });
-
+builder.Services.AddScoped<IEmailService, EmailService>();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

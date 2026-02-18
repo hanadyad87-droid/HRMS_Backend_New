@@ -11,5 +11,8 @@
 
         public string Status { get; set; }   // نص مش رقم
         public string? RejectionReason { get; set; }
+        public string? ManagerNote { get; set; }
+        public string? Notes { get; set; }
+        public string? AttachmentPath { get; set; }
     }
 }

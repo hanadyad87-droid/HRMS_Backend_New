@@ -14,10 +14,10 @@ namespace HRMS_Backend.DTOs
         [Required(ErrorMessage = "تاريخ النهاية مطلوب")]
         public DateTime ToDate { get; set; }
 
-        [MaxLength(500, ErrorMessage = "الملاحظات طويلة هلبا")]
+        [MaxLength(500, ErrorMessage = "الملاحظات طويلة جداً")]
         public string? Notes { get; set; }
 
-        // هذا الحقل جديد لدعم رفع الملف
+        // هنا التعديل المهم: لاستقبال الملف المرفوع من المتصفح
         public IFormFile? Attachment { get; set; }
     }
 }

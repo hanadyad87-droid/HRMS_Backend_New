@@ -33,6 +33,7 @@
         public ICollection<EmployeeEducation> Educations { get; set; } = new List<EmployeeEducation>();
         public EmployeeAdministrativeData AdministrativeData { get; set; } = null!;
         public EmployeeFinancialData? FinancialData { get; set; }
+        public string Email { get; set; } = null!;
 
     }
 }

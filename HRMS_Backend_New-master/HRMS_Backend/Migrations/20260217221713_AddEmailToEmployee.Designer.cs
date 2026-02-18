@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260217221713_AddEmailToEmployee")]
+    partial class AddEmailToEmployee
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -624,10 +627,6 @@ namespace HRMS_Backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("IsAffectedByHolidays")
-                        .HasColumnType("bit")
-                        .HasColumnName("تتأثر_بالعطلات_الرسمية");
-
                     b.Property<string>("اسم_الاجازة")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -653,7 +652,6 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             Id = 1,
-                            IsAffectedByHolidays = true,
                             اسم_الاجازة = "إجازة سنوية",
                             تحتاج_نموذج = false,
                             مخصومة_من_الرصيد = true,
@@ -662,7 +660,6 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             Id = 2,
-                            IsAffectedByHolidays = true,
                             اسم_الاجازة = "إجازة مرضية",
                             تحتاج_نموذج = true,
                             مخصومة_من_الرصيد = true,
@@ -671,7 +668,6 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             Id = 3,
-                            IsAffectedByHolidays = false,
                             اسم_الاجازة = "إجازة حج",
                             تحتاج_نموذج = true,
                             مخصومة_من_الرصيد = false,
@@ -680,7 +676,6 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             Id = 4,
-                            IsAffectedByHolidays = false,
                             اسم_الاجازة = "إجازة عمرة",
                             تحتاج_نموذج = true,
                             مخصومة_من_الرصيد = false,
@@ -689,19 +684,17 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             Id = 5,
-                            IsAffectedByHolidays = false,
                             اسم_الاجازة = "إجازة وضع",
-                            تحتاج_نموذج = true,
+                            تحتاج_نموذج = false,
                             مخصومة_من_الرصيد = false,
                             مفعلة = true
                         },
                         new
                         {
                             Id = 6,
-                            IsAffectedByHolidays = true,
                             اسم_الاجازة = "إجازة طارئه",
                             تحتاج_نموذج = false,
-                            مخصومة_من_الرصيد = true,
+                            مخصومة_من_الرصيد = false,
                             مفعلة = true
                         });
                 });

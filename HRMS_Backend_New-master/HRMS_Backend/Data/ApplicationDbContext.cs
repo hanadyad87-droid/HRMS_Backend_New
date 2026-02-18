@@ -275,13 +275,61 @@ new RolePermission { RoleId = 4, PermissionId = 10 }, // ViewDepartmentEmployees
 
             // LeaveTypes
             modelBuilder.Entity<LeaveTypes>().HasData(
-                new LeaveTypes { Id = 1, اسم_الاجازة = "إجازة سنوية", مخصومة_من_الرصيد = true, تحتاج_نموذج = false, مفعلة = true },
-                new LeaveTypes { Id = 2, اسم_الاجازة = "إجازة مرضية", مخصومة_من_الرصيد = true, تحتاج_نموذج = true, مفعلة = true },
-                new LeaveTypes { Id = 3, اسم_الاجازة = "إجازة حج", مخصومة_من_الرصيد = false, تحتاج_نموذج = true, مفعلة = true },
-                new LeaveTypes { Id = 4, اسم_الاجازة = "إجازة عمرة", مخصومة_من_الرصيد = false, تحتاج_نموذج = true, مفعلة = true },
-                new LeaveTypes { Id = 5, اسم_الاجازة = "إجازة وضع", مخصومة_من_الرصيد = false, تحتاج_نموذج = false, مفعلة = true },
-                new LeaveTypes { Id = 6, اسم_الاجازة = "إجازة طارئه", مخصومة_من_الرصيد = false, تحتاج_نموذج = false, مفعلة = true }
-            );
+     new LeaveTypes
+     {
+         Id = 1,
+         اسم_الاجازة = "إجازة سنوية",
+         مخصومة_من_الرصيد = true,
+         تحتاج_نموذج = false,
+         IsAffectedByHolidays = true, // لا تحسب الجمعة والسبت
+         مفعلة = true
+     },
+     new LeaveTypes
+     {
+         Id = 2,
+         اسم_الاجازة = "إجازة مرضية",
+         مخصومة_من_الرصيد = true,
+         تحتاج_نموذج = true,
+         IsAffectedByHolidays = true, // المريض لا تضيع عليه عطلته الأسبوعية
+         مفعلة = true
+     },
+     new LeaveTypes
+     {
+         Id = 3,
+         اسم_الاجازة = "إجازة حج",
+         مخصومة_من_الرصيد = false,
+         تحتاج_نموذج = true,
+         IsAffectedByHolidays = false, // تحسب أيام متصلة (مدة محددة قانوناً)
+         مفعلة = true
+     },
+     new LeaveTypes
+     {
+         Id = 4,
+         اسم_الاجازة = "إجازة عمرة",
+         مخصومة_من_الرصيد = false,
+         تحتاج_نموذج = true,
+         IsAffectedByHolidays = false, // أيام متصلة
+         مفعلة = true
+     },
+     new LeaveTypes
+     {
+         Id = 5,
+         اسم_الاجازة = "إجازة وضع",
+         مخصومة_من_الرصيد = false,
+         تحتاج_نموذج = true,
+         IsAffectedByHolidays = false, // تحسب 3 أشهر أو 90 يوماً متصلة
+         مفعلة = true
+     },
+     new LeaveTypes
+     {
+         Id = 6,
+         اسم_الاجازة = "إجازة طارئه",
+         مخصومة_من_الرصيد = true, // عادة في ليبيا تخصم من الرصيد السنوي
+         تحتاج_نموذج = false,
+         IsAffectedByHolidays = true, // تحسب أيام متصلة، لكن لا تحسب الجمعة والسبت
+         مفعلة = true
+     }
+ );
         }
     }
 }

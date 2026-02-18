@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HRMS_Backend.Models
 {
@@ -6,8 +7,9 @@ namespace HRMS_Backend.Models
     {
         public int Id { get; set; }
 
+        [Required]
         [Column("اسم_الاجازة")]
-        public string اسم_الاجازة { get; set; }   // سنوية، مرضية، حج...
+        public string اسم_الاجازة { get; set; } = string.Empty; // سنوية، مرضية، عارضة، حج...
 
         [Column("مخصومة_من_الرصيد")]
         public bool مخصومة_من_الرصيد { get; set; }
@@ -15,7 +17,12 @@ namespace HRMS_Backend.Models
         [Column("تحتاج_نموذج")]
         public bool تحتاج_نموذج { get; set; }
 
+        // --- الإضافات الجديدة لضبط المنطق الليبي ---
+
+        [Column("تتأثر_بالعطلات_الرسمية")]
+        public bool IsAffectedByHolidays { get; set; } = true;
+
         [Column("مفعلة")]
-        public bool مفعلة { get; set; } = true; // تفعيل / إيقاف
+        public bool مفعلة { get; set; } = true;
     }
 }
