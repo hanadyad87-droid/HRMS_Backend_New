@@ -43,6 +43,11 @@ namespace HRMS_Backend.Data
         public DbSet<FAQ> FAQs { get; set; }
         public DbSet<Announcement> Announcements { get; set; }
         public DbSet<Complaint> Complaints { get; set; } = null!;
+        public DbSet<ExitPermitRequest> ExitPermitRequests { get; set; }
+        public DbSet<DataUpdateRequest> DataUpdateRequests { get; set; }
+        public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
+        public DbSet<SalaryCertificateRequest> SalaryCertificateRequests { get; set; }
+        public DbSet<RequestSetting> RequestSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -225,7 +230,11 @@ namespace HRMS_Backend.Data
                 new Permission { Id = 11, PermissionName = "AddOwnEducation" },
                 new Permission { Id = 12, PermissionName = "EditOwnEducation" },
                 new Permission { Id = 13, PermissionName = "ManageEmployeeEducation" },
-                new Permission { Id = 14, PermissionName = "AssignRole" }
+                new Permission { Id = 14, PermissionName = "AssignRole" },
+                new Permission { Id = 15, PermissionName = "ManageMaintenance" }, // لتقنية المعلومات
+new Permission { Id = 16, PermissionName = "ManageSalaryCertificates" }, // للمالية
+new Permission { Id = 17, PermissionName = "ManageExitPermits" }, // للـ HR
+new Permission { Id = 18, PermissionName = "ManageDataUpdates" } // للـ HR
 
             );
 
@@ -247,6 +256,10 @@ namespace HRMS_Backend.Data
      new RolePermission { RoleId = 1, PermissionId = 11 },
      new RolePermission { RoleId = 1, PermissionId = 12 },
      new RolePermission { RoleId = 1, PermissionId = 13 },
+     new RolePermission { RoleId = 1, PermissionId = 15 }, // ManageMaintenance
+new RolePermission { RoleId = 1, PermissionId = 16 }, // ManageSalaryCertificates
+new RolePermission { RoleId = 1, PermissionId = 17 }, // ManageExitPermits
+new RolePermission { RoleId = 1, PermissionId = 18 }, // ManageDataUpdates
 new RolePermission { RoleId = 1, PermissionId = 14 },
 // ================= SubDepartmentManager =================
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
@@ -269,7 +282,9 @@ new RolePermission { RoleId = 4, PermissionId = 10 }, // ViewDepartmentEmployees
      // ================= HR =================
      new RolePermission { RoleId = 2, PermissionId = 1 }, // AddEmployee
      new RolePermission { RoleId = 2, PermissionId = 2 }, // EditEmployee
-     new RolePermission { RoleId = 2, PermissionId = 4 }  // ViewEmployee
+     new RolePermission { RoleId = 2, PermissionId = 4 },  // ViewEmployee
+     new RolePermission { RoleId = 2, PermissionId = 17 }, // ManageExitPermits
+new RolePermission { RoleId = 2, PermissionId = 18 } // ManageDataUpdates
  );
 
 

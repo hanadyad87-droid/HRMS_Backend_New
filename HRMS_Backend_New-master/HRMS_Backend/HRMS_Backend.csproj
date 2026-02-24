@@ -20,6 +20,7 @@
   <ItemGroup>
     <Folder Include="Migrations\" />
     <Folder Include="wwwroot\employees\" />
+    <Folder Include="wwwroot\maintenance\" />
   </ItemGroup>
 
 </Project>

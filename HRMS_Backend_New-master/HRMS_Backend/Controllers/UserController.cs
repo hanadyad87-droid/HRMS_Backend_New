@@ -52,7 +52,7 @@ namespace HRMS_Backend.Controllers
         // Login
         // -------------------------
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        public IActionResult Login([FromForm] LoginRequest request)
         {
             var hashed = HashPassword(request.Password);
 

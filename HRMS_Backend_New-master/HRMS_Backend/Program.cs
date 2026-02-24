@@ -5,23 +5,34 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. إعداد قاعدة البيانات
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add services to the container.
-
+// 2. إعداد الـ Controllers مع دعم الـ Enum في JSON
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
-    options.JsonSerializerOptions.ReferenceHandler =
-        System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    // تجاهل الحلقات اللانهائية
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+
+    // تحويل الـ Enums إلى نصوص (Strings) بدلاً من أرقام في Swagger و JSON
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+// 3. إعداد Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "API", Version = "v1" });
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "HRMS API", Version = "v1" });
 
+    // --- إضافة لدعم الـ Dropdown بشكل أفضل في Swagger ---
+    c.DescribeAllParametersInCamelCase();
+
+    // إعداد حماية Bearer Token
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -29,7 +40,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "اكتبي Bearer ثم مسافة ثم التوكن"
+        Description = "اكتبي Bearer ثم مسافة ثم التوكن الخاص بك"
     });
 
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -48,6 +59,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// 4. إعداد الـ Authentication والـ JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -59,9 +71,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperSecretKeyForJWTAuthentication1234567890")),
             RoleClaimType = ClaimTypes.Role,
-            NameClaimType = "UserId"  // << مهمة جداً لاستخدام UserId من الـ token
+            NameClaimType = "UserId"
         };
     });
+
+// 5. إعداد الـ CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -73,23 +87,27 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader();
         });
 });
+
+// 6. إضافة الخدمات
 builder.Services.AddScoped<IEmailService, EmailService>();
+
 var app = builder.Build();
 
+// 7. Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// مهم جداً يكون قبل أي حاجة
+app.UseStaticFiles();
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
 app.Urls.Add("http://0.0.0.0:5205");
-app.UseStaticFiles();
 
 app.Run();

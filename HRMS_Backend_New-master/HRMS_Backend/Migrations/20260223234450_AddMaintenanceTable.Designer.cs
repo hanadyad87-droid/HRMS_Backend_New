@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260223234450_AddMaintenanceTable")]
+    partial class AddMaintenanceTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1106,26 +1109,6 @@ namespace HRMS_Backend.Migrations
                         new
                         {
                             RoleId = 1,
-                            PermissionId = 15
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 16
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 17
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 18
-                        },
-                        new
-                        {
-                            RoleId = 1,
                             PermissionId = 14
                         },
                         new
@@ -1192,46 +1175,7 @@ namespace HRMS_Backend.Migrations
                         {
                             RoleId = 2,
                             PermissionId = 4
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 17
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 18
                         });
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.SalaryCertificateRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Purpose")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmployeeId");
-
-                    b.ToTable("SalaryCertificateRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Section", b =>
@@ -1346,25 +1290,6 @@ namespace HRMS_Backend.Migrations
                     b.HasIndex("PreviousManagerId");
 
                     b.ToTable("SubDepartments");
-                });
-
-            modelBuilder.Entity("RequestSetting", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("RequestType")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TargetSubDepartmentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("RequestSettings");
                 });
 
             modelBuilder.Entity("Role", b =>
@@ -1713,17 +1638,6 @@ namespace HRMS_Backend.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.SalaryCertificateRequest", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.Employee", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Section", b =>
