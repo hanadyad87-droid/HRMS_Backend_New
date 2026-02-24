@@ -146,28 +146,44 @@ namespace HRMS_Backend.Controllers
                 transaction.Commit();
 
                 // 6. إرسال الإيميل (يحتوي على كلمة المرور المولدة)
+                // 6. إرسال الإيميل (يحتوي على كلمة المرور المولدة)
                 try
                 {
                     var subject = "بيانات دخول نظام الموارد البشرية";
                     var body = $@"
-                        <div dir='rtl' style='font-family: Arial, sans-serif;'>
-                            <h2>مرحباً بك، {dto.FullName}</h2>
-                            <p>تم إنشاء حساب لك بنجاح. بيانات الدخول الخاصة بك هي:</p>
-                            <p><b>اسم المستخدم:</b> {dto.Username}</p>
-                            <p><b>كلمة المرور:</b> {generatedPassword}</p>
-                            <hr>
-                            <p style='color: red;'>يرجى تغيير كلمة المرور بعد أول تسجيل دخول.</p>
-                        </div>";
+        <div dir='rtl' style='font-family: Arial, sans-serif;'>
+            <h2>مرحباً بك، {dto.FullName}</h2>
+            <p>تم إنشاء حساب لك بنجاح. بيانات الدخول الخاصة بك هي:</p>
+            <p><b>اسم المستخدم:</b> {dto.Username}</p>
+            <p><b>كلمة المرور:</b> {generatedPassword}</p>
+            <hr>
+            <p style='color: red;'>يرجى تغيير كلمة المرور بعد أول تسجيل دخول.</p>
+        </div>";
 
                     await _emailService.SendEmailAsync(dto.Email, subject, body);
                 }
                 catch (Exception emailEx)
                 {
-                    // نرجع Ok لأن الحساب تم إنشاؤه بالفعل بنجاح
-                    return Ok(new { message = "تم إنشاء الحساب، ولكن تعذر إرسال الإيميل.", error = emailEx.Message });
+                    // الحساب تم إنشاؤه، لكن الإيميل فشل
+                    return Ok(new
+                    {
+                        employeeId = employee.Id,
+                        employeeNumber = employee.EmployeeNumber,
+                        fullName = employee.FullName,
+                        message = "تم إنشاء الحساب، ولكن تعذر إرسال الإيميل.",
+                        error = emailEx.Message
+                    });
                 }
 
-                return Ok("تم إنشاء الحساب وإرسال البيانات للموظف بنجاح");
+                // إذا نجح الإيميل
+                return Ok(new
+                {
+                    employeeId = employee.Id,
+                    publicId = employee.PublicId,
+                    employeeNumber = employee.EmployeeNumber,
+                    fullName = employee.FullName,
+                    message = "تم إنشاء الحساب وإرسال البيانات للموظف بنجاح"
+                });
             }
             catch (Exception ex)
             {
@@ -369,6 +385,31 @@ namespace HRMS_Backend.Controllers
             _context.SaveChanges();
 
             return Ok("تم تغيير كلمة المرور بنجاح");
+        }
+
+        [AllowAnonymous]
+        [HttpGet("test-smtp")]
+        public async Task<IActionResult> TestSmtp()
+        {
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    "hanadyad87@example.com", // حطي إيميلك هنا
+                    "SMTP Test",
+                    "<h2>إذا وصلتك هذه الرسالة فالإرسال شغال ✅</h2>"
+                );
+
+                return Ok("تم إرسال الإيميل بنجاح ✅");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    Message = "فشل إرسال الإيميل ❌",
+                    Error = ex.Message,
+                    InnerError = ex.InnerException?.Message
+                });
+            }
         }
     }
 }
