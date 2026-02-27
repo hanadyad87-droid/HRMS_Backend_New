@@ -1,11 +1,7 @@
-﻿namespace HRMS_Backend.Enums
+﻿public enum RequestType
 {
-
-    public enum RequestType
-    {
-        Maintenance,      // طلب صيانة
-        SalaryCertificate, // شهادة مرتب
-        ExitPermit,        // إذن خروج
-        DataUpdate         // تعديل بيانات
-    }
+    Maintenance = 1,       // هكي حيولي يقرأ في رقم 1 من الصورة
+    SalaryCertificate = 2,
+    ExitPermit = 3,
+    DataUpdate = 4
 }

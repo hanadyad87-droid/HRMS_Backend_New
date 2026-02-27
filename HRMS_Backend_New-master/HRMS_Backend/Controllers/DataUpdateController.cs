@@ -25,7 +25,10 @@ namespace HRMS_Backend.Controllers
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromForm] CreateDataUpdateDto dto)
         {
-            var userId = int.Parse(User.FindFirstValue("UserId"));
+            var userIdClaim = User.FindFirstValue("UserId");
+            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+
+            var userId = int.Parse(userIdClaim);
             var emp = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == userId);
 
             if (emp == null) return NotFound("الموظف غير موجود");
@@ -33,17 +36,20 @@ namespace HRMS_Backend.Controllers
             var request = new DataUpdateRequest
             {
                 EmployeeId = emp.Id,
-                // تحويل Enum إلى نص
+                // تخزين القيمة مع استبدال الشرطة السفلية بمسافة لشكل أجمل في العرض
                 UpdateType = dto.UpdateType.ToString().Replace("_", " "),
                 NewValue = dto.NewValue,
                 Reason = dto.Reason,
-                Status = "قيد_الانتظار"
+                Status = "قيد_الانتظار",
+                CreatedAt = DateTime.Now
             };
 
             _context.DataUpdateRequests.Add(request);
             await _context.SaveChangesAsync();
-            return Ok("تم إرسال طلب التعديل للإدارة المختصة");
+            return Ok(new { Message = "تم إرسال طلب التعديل للإدارة المختصة بنجاح" });
         }
+
+        // 2. عرض طلباتي الخاصة (للموظف)
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
         {
@@ -52,7 +58,6 @@ namespace HRMS_Backend.Controllers
 
             if (employee == null) return NotFound("الموظف غير موجود");
 
-            // جلب طلبات تعديل البيانات الخاصة بهذا الموظف فقط
             var myRequests = await _context.DataUpdateRequests
                 .Where(r => r.EmployeeId == employee.Id)
                 .OrderByDescending(r => r.Id)
@@ -61,44 +66,46 @@ namespace HRMS_Backend.Controllers
             return Ok(myRequests);
         }
 
-        // 2. عرض الطلبات المعلقة للإدارة المسؤولة ديناميكياً
+        // 3. عرض الطلبات المعلقة للإدارة المسؤولة (HR)
         [HttpGet("pending-for-my-dept")]
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
+            var currentEmp = await _context.Employees
+                .Include(e => e.AdministrativeData)
+                .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            // استخدام الـ Enum هنا
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
+            var setting = await _context.RequestSettings
+                .FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
+
             var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageDataUpdates");
 
+            // السماح للسوبر أدمن أو الموظف في الإدارة المستهدفة وعنده صلاحية
             if (User.IsInRole("SuperAdmin") ||
-               (setting != null && currentEmp.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
+               (setting != null && currentEmp?.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
             {
-                var requests = await _context.DataUpdateRequests.Include(r => r.Employee)
-                                                                .Where(r => r.Status == "قيد_الانتظار")
-                                                                .ToListAsync();
+                var requests = await _context.DataUpdateRequests
+                    .Include(r => r.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                    .Where(r => r.Status == "قيد_الانتظار")
+                    .ToListAsync();
                 return Ok(requests);
             }
-            return Forbid();
+
+            return StatusCode(403, "ليس لديك صلاحية الوصول لطلبات تعديل البيانات");
         }
 
-        // 3. قرار الإدارة المختصة
+        // 4. قرار الإدارة المختصة (الموافقة وتحديث البيانات تلقائياً)
         [HttpPost("decision/{id}")]
         public async Task<IActionResult> Decision(int id, bool approve)
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-
-            // جلب بيانات الموظف اللي وافق (الـ HR)
             var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
-
-            // جلب الإعدادات للتأكد من الصلاحية
             var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
 
-            if (!User.IsInRole("SuperAdmin") && (setting == null || currentEmp.AdministrativeData?.SubDepartmentId != setting.TargetSubDepartmentId))
+            if (!User.IsInRole("SuperAdmin") && (setting == null || currentEmp?.AdministrativeData?.SubDepartmentId != setting.TargetSubDepartmentId))
                 return Unauthorized("ليس لديك صلاحية اتخاذ قرار");
 
-            // جلب الطلب مع بيانات الموظف (الأساسية والإدارية) صاحب الطلب
             var request = await _context.DataUpdateRequests
                 .Include(r => r.Employee)
                 .ThenInclude(e => e.AdministrativeData)
@@ -111,37 +118,35 @@ namespace HRMS_Backend.Controllers
                 request.Status = "مقبول";
                 var emp = request.Employee;
 
-                // التعديل التلقائي بناءً على النوع
-                switch (request.UpdateType)
+                // تحويل النص المخزن إلى Enum للمقارنة الصحيحة
+                // نعيد المسافة إلى شرطة سفلية ليطابق الـ Enum التعريف الأصلي
+                var enumKey = request.UpdateType.Replace(" ", "_");
+
+                if (Enum.TryParse(enumKey, out DataUpdateField field))
                 {
-                    case "الاسم كامل":
-                        emp.FullName = request.NewValue;
-                        break;
-                    case "الرقم الوطني":
-                        emp.NationalId = request.NewValue;
-                        break;
-                    case "رقم الهاتف الاول":
-                        emp.Phone1 = request.NewValue;
-                        break;
-                    case "رقم الهاتف التاني":
-                        emp.Phone2 = request.NewValue;
-                        break;
-                    case "الادارة":
-                        // هنا NewValue لازم تكون ID الإدارة الجديدة
-                        if (int.TryParse(request.NewValue, out int deptId))
-                        {
-                            if (emp.AdministrativeData != null)
+                    switch (field)
+                    {
+                        case DataUpdateField.الاسم_الكامل:
+                            emp.FullName = request.NewValue;
+                            break;
+                        case DataUpdateField.الرقم_الوطني:
+                            emp.NationalId = request.NewValue;
+                            break;
+                        case DataUpdateField.رقم_الهاتف_الأول:
+                            emp.Phone1 = request.NewValue;
+                            break;
+                        case DataUpdateField.رقم_الهاتف_الثاني:
+                            emp.Phone2 = request.NewValue;
+                            break;
+                        case DataUpdateField.الإدارة:
+                            if (int.TryParse(request.NewValue, out int deptId) && emp.AdministrativeData != null)
                                 emp.AdministrativeData.SubDepartmentId = deptId;
-                        }
-                        break;
-                    case "المسمى الوظيفي":
-                        // هنا NewValue لازم تكون ID المسمى الوظيفي الجديد
-                        if (int.TryParse(request.NewValue, out int jobTitleId))
-                        {
-                            if (emp.AdministrativeData != null)
+                            break;
+                        case DataUpdateField.المسمى_الوظيفي:
+                            if (int.TryParse(request.NewValue, out int jobTitleId) && emp.AdministrativeData != null)
                                 emp.AdministrativeData.JobTitleId = jobTitleId;
-                        }
-                        break;
+                            break;
+                    }
                 }
             }
             else
@@ -150,7 +155,7 @@ namespace HRMS_Backend.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return Ok(approve ? "تم قبول الطلب وتحديث البيانات بنجاح" : "تم رفض الطلب");
+            return Ok(new { Message = approve ? "تم قبول الطلب وتحديث البيانات تلقائياً" : "تم رفض الطلب" });
         }
     }
 }
