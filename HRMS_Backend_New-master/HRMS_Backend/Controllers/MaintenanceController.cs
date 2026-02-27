@@ -81,20 +81,28 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
+            var currentEmp = await _context.Employees
+                                           .Include(e => e.AdministrativeData)
+                                           .FirstOrDefaultAsync(e => e.UserId == userId);
 
             // البحث باستخدام الـ Enum
             var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageMaintenance");
 
-            if (User.IsInRole("SuperAdmin") ||
-               (setting != null && currentEmp.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
+            // التأكد من الصلاحية
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 15 && p.IsAllowed);
+
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
-                var requests = await _context.MaintenanceRequests.Include(r => r.Employee)
-                                                                 .Where(r => r.Status == "قيد_الانتظار")
-                                                                 .ToListAsync();
+                // جلب كل طلبات الصيانة المعلقة دون النظر إلى SubDepartmentId
+                var requests = await _context.MaintenanceRequests
+                    .Include(r => r.Employee)
+                    .Where(r => r.Status == "قيد_الانتظار")
+                    .ToListAsync();
+
                 return Ok(requests);
             }
+
             return Forbid();
         }
 

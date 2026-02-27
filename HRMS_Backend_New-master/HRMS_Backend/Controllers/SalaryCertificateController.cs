@@ -58,20 +58,28 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
+            var currentEmp = await _context.Employees
+                                           .Include(e => e.AdministrativeData)
+                                           .FirstOrDefaultAsync(e => e.UserId == userId);
 
             // البحث باستخدام الـ Enum
             var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageSalaryCertificates");
 
-            if (User.IsInRole("SuperAdmin") ||
-               (setting != null && currentEmp.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
+            // التأكد من الصلاحية
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 16 && p.IsAllowed);
+
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
-                var requests = await _context.SalaryCertificateRequests.Include(r => r.Employee)
-                                                                      .Where(r => r.Status == "قيد_الانتظار")
-                                                                      .ToListAsync();
+                // جلب كل الطلبات المعلقة دون النظر إلى SubDepartmentId
+                var requests = await _context.SalaryCertificateRequests
+                    .Include(r => r.Employee)
+                    .Where(r => r.Status == "قيد_الانتظار")
+                    .ToListAsync();
+
                 return Ok(requests);
             }
+
             return Forbid();
         }
 

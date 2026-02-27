@@ -66,20 +66,26 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
+            var currentEmp = await _context.Employees
+                                           .Include(e => e.AdministrativeData)
+                                           .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            // استخدام الـ Enum هنا
             var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageDataUpdates");
 
-            if (User.IsInRole("SuperAdmin") ||
-               (setting != null && currentEmp.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 18 && p.IsAllowed);
+
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
-                var requests = await _context.DataUpdateRequests.Include(r => r.Employee)
-                                                                .Where(r => r.Status == "قيد_الانتظار")
-                                                                .ToListAsync();
+                // الآن نجيب كل الطلبات المعلقة بدون التحقق من SubDepartmentId للموظف
+                var requests = await _context.DataUpdateRequests
+                    .Include(r => r.Employee)
+                    .Where(r => r.Status == "قيد_الانتظار")
+                    .ToListAsync();
+
                 return Ok(requests);
             }
+
             return Forbid();
         }
 
