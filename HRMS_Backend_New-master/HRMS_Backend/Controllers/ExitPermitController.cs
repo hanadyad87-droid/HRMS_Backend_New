@@ -52,19 +52,21 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPendingForManager()
         {
             var currentUserId = int.Parse(User.FindFirstValue("UserId"));
+            var currentManager = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == currentUserId);
+            if (currentManager == null) return Unauthorized();
 
-            // جلب الطلبات التي المدير الخاص بقسم الموظف هو المدير الحالي
+            // جلب الطلبات التي يكون فيها المدير الحالي هو المسؤول المباشر
             var requests = await _context.ExitPermitRequests
                 .Include(r => r.Employee)
                 .ThenInclude(e => e.AdministrativeData)
-                .ThenInclude(a => a.Section)
                 .Where(r => r.Status == "قيد_الانتظار" &&
-                            r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentUserId)
+                    (r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentManager.Id ||
+                     r.Employee.AdministrativeData.SubDepartment.ManagerEmployeeId == currentManager.Id ||
+                     r.Employee.AdministrativeData.Department.ManagerEmployeeId == currentManager.Id))
                 .ToListAsync();
 
             return Ok(requests);
         }
-
         // 3. جلب طلبات الموظف الشخصية
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
