@@ -77,29 +77,21 @@ namespace HRMS_Backend.Controllers
         [HttpGet("pending-for-my-dept")]
         public async Task<IActionResult> GetPending()
         {
-            var userIdClaim = User.FindFirstValue("UserId");
-            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized("UserId missing in token");
-
-            var userId = int.Parse(userIdClaim);
-
-            // تأكدي من عمل Include لجدول البيانات الإدارية
+            var userId = int.Parse(User.FindFirstValue("UserId"));
             var currentEmp = await _context.Employees
-                .Include(e => e.AdministrativeData)
-                .FirstOrDefaultAsync(e => e.UserId == userId);
+                                           .Include(e => e.AdministrativeData)
+                                           .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            if (currentEmp == null || currentEmp.AdministrativeData == null)
+            // البحث باستخدام الـ Enum
+            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
+
+            // التأكد من الصلاحية
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 15 && p.IsAllowed);
+
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
-                return StatusCode(403, "بيانات الموظف الإدارية غير موجودة في قاعدة البيانات");
-            }
-
-            var setting = await _context.RequestSettings
-                .FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
-
-            if (setting == null) return NotFound("إعدادات طلب الصيانة غير موجودة");
-
-            // هنا التشخيص الحقيقي
-            if (User.IsInRole("SuperAdmin") || currentEmp.AdministrativeData.SubDepartmentId == setting.TargetSubDepartmentId)
-            {
+                // جلب كل طلبات الصيانة المعلقة دون النظر إلى SubDepartmentId
                 var requests = await _context.MaintenanceRequests
                     .Include(r => r.Employee)
                     .Where(r => r.Status == "قيد_الانتظار")
@@ -108,8 +100,7 @@ namespace HRMS_Backend.Controllers
                 return Ok(requests);
             }
 
-            // لو وصل هنا معناه فيه عدم تطابق فعلي
-            return StatusCode(403, $"عدم تطابق: إدارة الموظف {currentEmp.AdministrativeData.SubDepartmentId} وإدارة الطلب {setting.TargetSubDepartmentId}");
+            return Forbid();
         }
 
         [HttpPost("decision/{id}")]

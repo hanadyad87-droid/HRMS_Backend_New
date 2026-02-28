@@ -66,33 +66,31 @@ namespace HRMS_Backend.Controllers
             return Ok(myRequests);
         }
 
-        // 3. عرض الطلبات المعلقة للإدارة المسؤولة (HR)
         [HttpGet("pending-for-my-dept")]
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
             var currentEmp = await _context.Employees
-                .Include(e => e.AdministrativeData)
-                .FirstOrDefaultAsync(e => e.UserId == userId);
+                                           .Include(e => e.AdministrativeData)
+                                           .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            var setting = await _context.RequestSettings
-                .FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
+            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.DataUpdate);
 
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageDataUpdates");
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 18 && p.IsAllowed);
 
-            // السماح للسوبر أدمن أو الموظف في الإدارة المستهدفة وعنده صلاحية
-            if (User.IsInRole("SuperAdmin") ||
-               (setting != null && currentEmp?.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId && hasPermission))
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
+                // الآن نجيب كل الطلبات المعلقة بدون التحقق من SubDepartmentId للموظف
                 var requests = await _context.DataUpdateRequests
                     .Include(r => r.Employee)
-                    .ThenInclude(e => e.AdministrativeData)
                     .Where(r => r.Status == "قيد_الانتظار")
                     .ToListAsync();
+
                 return Ok(requests);
             }
 
-            return StatusCode(403, "ليس لديك صلاحية الوصول لطلبات تعديل البيانات");
+            return Forbid();
         }
 
         // 4. قرار الإدارة المختصة (الموافقة وتحديث البيانات تلقائياً)

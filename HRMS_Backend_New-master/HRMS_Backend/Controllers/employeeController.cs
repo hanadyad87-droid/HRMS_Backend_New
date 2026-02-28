@@ -215,24 +215,7 @@ namespace HRMS_Backend.Controllers
             return Ok(employees);
         }
 
-        // ==================== جلب المدراء ====================
-        [HasPermission("ViewEmployee")]
-        [HttpGet("managers")]
-        public IActionResult GetManagers()
-        {
-            var managers = _context.Employees
-                .Include(e => e.User)
-                .ThenInclude(u => u.UserRoles)
-                .Where(e => e.User.UserRoles.Any(ur => ur.RoleId == 3))
-                .Select(e => new
-                {
-                    e.Id,
-                    e.FullName
-                })
-                .ToList();
-
-            return Ok(managers);
-        }
+      
 
         // ==================== My Profile ====================
         [HttpGet("my-profile")]
@@ -290,8 +273,15 @@ namespace HRMS_Backend.Controllers
 
             if (!_context.Roles.Any(r => r.Id == roleId)) return NotFound("الدور غير موجود");
 
-            if (employee.User.UserRoles.Any(ur => ur.RoleId == roleId))
-                return BadRequest("هذا الدور مضاف مسبقاً");
+            var existingRole = employee.User.UserRoles.FirstOrDefault(ur => ur.RoleId == roleId);
+            if (existingRole != null)
+            {
+                // رسالة خاصة للدور 6
+                if (roleId == 6)
+                    return BadRequest("الموظف لديه بالفعل الدور الافتراضي (موظف)");
+                else
+                    return BadRequest("هذا الدور مضاف مسبقاً");
+            }
 
             employee.User.UserRoles.Add(new UserRole { UserId = employee.User.Id, RoleId = roleId });
             _context.SaveChanges();
@@ -299,36 +289,83 @@ namespace HRMS_Backend.Controllers
             return Ok(new { message = "تم إضافة الدور بنجاح" });
         }
 
-        // ==================== تعديل Profile ====================
+        // ==================== تعديل Profile + User Roles ====================
+        // ==================== تعديل Profile + User Roles ====================
         [HasPermission("EditEmployee")]
-        [HttpPut("update-full/{id}")]
-        public IActionResult UpdateEmployeeFull(int id, [FromForm] UpdateEmployeeDto dto)
+        [HttpPut("update-full/{publicId}")]
+        public IActionResult UpdateEmployeeFull(Guid publicId, [FromForm] UpdateEmployeeDto dto)
         {
-            var employee = _context.Employees.Include(e => e.User).FirstOrDefault(e => e.Id == id);
-            if (employee == null) return NotFound("الموظف غير موجود");
+            var employee = _context.Employees
+                .Include(e => e.User)
+                .ThenInclude(u => u.UserRoles)
+                .FirstOrDefault(e => e.PublicId == publicId);
+            if (employee == null)
+                return NotFound("الموظف غير موجود");
 
+            // ===== تحديث البيانات الأساسية =====
             employee.FullName = dto.FullName;
             employee.Phone1 = dto.Phone1;
             employee.Phone2 = dto.Phone2;
+            employee.Email = dto.Email;
             employee.MotherName = dto.MotherName;
             employee.NationalId = dto.NationalId;
-            employee.BirthDate = dto.BirthDate;
+            employee.BirthDate = dto.BirthDate ?? employee.BirthDate;
             employee.Gender = dto.Gender;
-            employee.MaritalStatusId = dto.MaritalStatusId;
+            employee.MaritalStatusId = dto.MaritalStatusId ?? employee.MaritalStatusId;
 
+            // ===== تحديث صورة الموظف =====
             if (dto.Photo != null && dto.Photo.Length > 0)
             {
                 var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "employees");
                 if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
+
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(dto.Photo.FileName)}";
                 var filePath = Path.Combine(folderPath, fileName);
+
                 using var stream = new FileStream(filePath, FileMode.Create);
                 dto.Photo.CopyTo(stream);
+
                 employee.PhotoPath = $"employees/{fileName}";
             }
 
+            // ===== تحديث بيانات الحساب =====
+            if (employee.User != null)
+            {
+                // تحديث اسم المستخدم
+                if (!string.IsNullOrWhiteSpace(dto.Username))
+                {
+                    if (_context.Users.Any(u => u.Username == dto.Username && u.Id != employee.UserId))
+                        return BadRequest("اسم المستخدم موجود مسبقاً");
+
+                    employee.User.Username = dto.Username;
+                }
+
+                // تعديل أدوار HR و SuperAdmin
+                var hrRole = employee.User.UserRoles.FirstOrDefault(r => r.RoleId == 2);
+                if (dto.IsHR && hrRole == null)
+                    employee.User.UserRoles.Add(new UserRole { UserId = employee.User.Id, RoleId = 2 });
+                else if (!dto.IsHR && hrRole != null)
+                    employee.User.UserRoles.Remove(hrRole);
+
+                var adminRole = employee.User.UserRoles.FirstOrDefault(r => r.RoleId == 1);
+                if (dto.IsSuperAdmin && adminRole == null)
+                    employee.User.UserRoles.Add(new UserRole { UserId = employee.User.Id, RoleId = 1 });
+                else if (!dto.IsSuperAdmin && adminRole != null)
+                    employee.User.UserRoles.Remove(adminRole);
+            }
+
             _context.SaveChanges();
-            return Ok("تم التحديث بنجاح");
+
+            return Ok(new
+            {
+                message = "تم التحديث بنجاح",
+                employeeId = employee.Id,
+                fullName = employee.FullName,
+                email = employee.Email,
+                motherName = employee.MotherName,
+                username = employee.User?.Username,
+                roles = employee.User?.UserRoles.Select(r => r.RoleId).ToList()
+            });
         }
 
         // ==================== عرض تفاصيل الموظف ====================
@@ -349,18 +386,28 @@ namespace HRMS_Backend.Controllers
             var adminData = _context.EmployeeAdministrativeDatas.Include(a => a.Department)
                 .FirstOrDefault(a => a.EmployeeId == employee.Id);
 
+            // تحقق من أدوار المستخدم
+            bool isHR = employee.User?.UserRoles.Any(r => r.RoleId == 2) ?? false;
+            bool isSuperAdmin = employee.User?.UserRoles.Any(r => r.RoleId == 1) ?? false;
+
             return Ok(new
             {
                 employee.Id,
                 employee.EmployeeNumber,
                 employee.FullName,
                 employee.Phone1,
+                employee.Phone2,
                 employee.NationalId,
                 employee.BirthDate,
                 employee.Gender,
+                MaritalStatusId = employee.MaritalStatusId,
                 MaritalStatus = employee.MaritalStatus?.Name,
                 PhotoUrl = photoUrl,
                 Username = employee.User?.Username,
+                Email = employee.Email,
+                MotherName = employee.MotherName,
+                IsHR = isHR,
+                IsSuperAdmin = isSuperAdmin,
                 Roles = employee.User?.UserRoles.Select(r => r.RoleId).ToList(),
                 DepartmentName = adminData?.Department?.Name,
                 employee.PublicId
@@ -387,29 +434,88 @@ namespace HRMS_Backend.Controllers
             return Ok("تم تغيير كلمة المرور بنجاح");
         }
 
-        [AllowAnonymous]
-        [HttpGet("test-smtp")]
-        public async Task<IActionResult> TestSmtp()
+        [HasPermission("AssignRole")]
+        [HttpPost("assign-role-and-entity")]
+        public IActionResult AssignRoleAndEntity([FromBody] AssignRoleAndEntityDto dto)
         {
+            using var transaction = _context.Database.BeginTransaction();
+
             try
             {
-                await _emailService.SendEmailAsync(
-                    "hanadyad87@example.com", // حطي إيميلك هنا
-                    "SMTP Test",
-                    "<h2>إذا وصلتك هذه الرسالة فالإرسال شغال ✅</h2>"
-                );
+                var employee = _context.Employees
+                    .Include(e => e.User)
+                    .ThenInclude(u => u.UserRoles)
+                    .FirstOrDefault(e => e.Id == dto.EmployeeId);
 
-                return Ok("تم إرسال الإيميل بنجاح ✅");
+                if (employee == null || employee.User == null)
+                    return NotFound("الموظف غير موجود");
+
+                // ================== 1. إضافة الدور ==================
+                if (!employee.User.UserRoles.Any(r => r.RoleId == dto.RoleId))
+                {
+                    employee.User.UserRoles.Add(new UserRole
+                    {
+                        UserId = employee.User.Id,
+                        RoleId = dto.RoleId
+                    });
+                }
+
+                // ================== 2. تعيين المدير ==================
+
+                if (dto.Type.ToLower() == "department")
+                {
+                    var dept = _context.Departments
+                        .Include(d => d.PreviousManager)
+                        .FirstOrDefault(d => d.Id == dto.EntityId);
+
+                    if (dept == null)
+                        return NotFound("الإدارة غير موجودة");
+
+                    dept.PreviousManagerId = dept.ManagerEmployeeId;
+                    dept.ManagerEmployeeId = dto.EmployeeId;
+                }
+                else if (dto.Type.ToLower() == "subdepartment")
+                {
+                    var sub = _context.SubDepartments
+                        .Include(s => s.PreviousManager)
+                        .FirstOrDefault(s => s.Id == dto.EntityId);
+
+                    if (sub == null)
+                        return NotFound("الإدارة الفرعية غير موجودة");
+
+                    sub.PreviousManagerId = sub.ManagerEmployeeId;
+                    sub.ManagerEmployeeId = dto.EmployeeId;
+                }
+                else if (dto.Type.ToLower() == "section")
+                {
+                    var sec = _context.Sections
+                        .Include(s => s.PreviousManager)
+                        .FirstOrDefault(s => s.Id == dto.EntityId);
+
+                    if (sec == null)
+                        return NotFound("القسم غير موجود");
+
+                    sec.PreviousManagerId = sec.ManagerEmployeeId;
+                    sec.ManagerEmployeeId = dto.EmployeeId;
+                }
+                else
+                {
+                    return BadRequest("نوع الكيان غير صحيح");
+                }
+
+                _context.SaveChanges();
+                transaction.Commit();
+
+                return Ok("تم التعيين بنجاح");
             }
             catch (Exception ex)
             {
-                return BadRequest(new
-                {
-                    Message = "فشل إرسال الإيميل ❌",
-                    Error = ex.Message,
-                    InnerError = ex.InnerException?.Message
-                });
+                transaction.Rollback();
+                return BadRequest("حدث خطأ: " + ex.Message);
             }
         }
+
+
+
     }
 }

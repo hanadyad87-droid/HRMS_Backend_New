@@ -62,38 +62,25 @@ namespace HRMS_Backend.Controllers
                                            .Include(e => e.AdministrativeData)
                                            .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            if (currentEmp == null) return NotFound("الموظف غير موجود");
+            // البحث باستخدام الـ Enum
+            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
 
-            var setting = await _context.RequestSettings
-                                        .FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
+            // التأكد من الصلاحية
+            var hasPermission = await _context.UserPermissions
+                .AnyAsync(p => p.UserId == userId && p.PermissionId == 16 && p.IsAllowed);
 
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageSalaryCertificates");
-
-            // 1. السوبر أدمن يشوف كل شيء
-            if (User.IsInRole("SuperAdmin"))
+            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
             {
-                return Ok(await _context.SalaryCertificateRequests
+                // جلب كل الطلبات المعلقة دون النظر إلى SubDepartmentId
+                var requests = await _context.SalaryCertificateRequests
                     .Include(r => r.Employee)
-                    .ThenInclude(e => e.AdministrativeData) // مهم للعرض
-                    .Where(r => r.Status == "قيد_الانتظار")
-                    .ToListAsync());
-            }
-
-            // 2. الموظف المخول (مثل نهى في المالية)
-            // الشرط هنا: لازم تكون إدارتها هي نفس الإدارة المستهدفة في الإعدادات + عندها الصلاحية
-            if (setting != null && hasPermission && currentEmp.AdministrativeData?.SubDepartmentId == setting.TargetSubDepartmentId)
-            {
-                // هنا نجلب كل الطلبات "قيد الانتظار" لشهادات المرتب من كل الإدارات
-                var allPendingRequests = await _context.SalaryCertificateRequests
-                    .Include(r => r.Employee)
-                    .ThenInclude(e => e.AdministrativeData)
                     .Where(r => r.Status == "قيد_الانتظار")
                     .ToListAsync();
 
-                return Ok(allPendingRequests);
+                return Ok(requests);
             }
 
-            return StatusCode(403, "ليس لديك صلاحية الوصول لطلبات هذه الإدارة");
+            return Forbid();
         }
         [HttpPost("decision/{id}")]
         public async Task<IActionResult> Decision(int id, bool isReady)
