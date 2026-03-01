@@ -82,7 +82,6 @@ namespace HRMS_Backend.Controllers
 
             return Forbid();
         }
-
         [HttpPost("decision/{id}")]
         public async Task<IActionResult> Decision(int id, bool isReady)
         {
@@ -90,13 +89,26 @@ namespace HRMS_Backend.Controllers
             var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
             var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
 
-            if (!User.IsInRole("SuperAdmin") && (setting == null || currentEmp.AdministrativeData?.SubDepartmentId != setting.TargetSubDepartmentId))
-                return Unauthorized("ليس لديك صلاحية اتخاذ قرار");
+            // إضافة تشيك الصلاحية هنا أيضاً للأمان
+            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageSalaryCertificates");
+
+            if (!User.IsInRole("SuperAdmin") && (!hasPermission || currentEmp.AdministrativeData?.SubDepartmentId != setting?.TargetSubDepartmentId))
+                return StatusCode(403, "ليس لديك صلاحية اتخاذ قرار على هذا الطلب");
 
             var request = await _context.SalaryCertificateRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            if (request == null) return NotFound("الطلب غير موجود");
 
             request.Status = isReady ? "جاهزة" : "مرفوض";
+
+            // فكرة من كود الإجازات: إضافة تنبيه للموظف أن طلبه جهز
+            _context.Notifications.Add(new Notification
+            {
+                UserId = request.Employee.UserId, // تأكدي من عمل Include للموظف قبل هذا السطر
+                Title = "تحديث طلب شهادة مرتب",
+                Message = $"طلبك أصبح حالته: {request.Status}",
+                CreatedAt = DateTime.Now
+            });
+
             await _context.SaveChangesAsync();
             return Ok($"تم تحديث حالة الطلب إلى: {request.Status}");
         }

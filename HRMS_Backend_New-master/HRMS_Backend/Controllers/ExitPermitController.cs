@@ -47,31 +47,27 @@ namespace HRMS_Backend.Controllers
             return Ok(new { Message = "تم إرسال طلب إذن الخروج بنجاح" });
         }
 
-        // 2. عرض الطلبات المعلقة لمدير الشعبة
+        // 2. جلب الطلبات المعلقة للمدير (حسب مدير القسم فقط)
         [HttpGet("pending-for-manager")]
         public async Task<IActionResult> GetPendingForManager()
         {
             var currentUserId = int.Parse(User.FindFirstValue("UserId"));
-            var currentManager = await _context.Employees
-                .Include(e => e.AdministrativeData)
-                .ThenInclude(a => a.Section)
-                .FirstOrDefaultAsync(e => e.UserId == currentUserId);
+            var currentManager = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == currentUserId);
+            if (currentManager == null) return Unauthorized();
 
-            if (currentManager == null)
-                return NotFound("الموظف غير موجود");
-
+            // جلب الطلبات التي يكون فيها المدير الحالي هو المسؤول المباشر
             var requests = await _context.ExitPermitRequests
                 .Include(r => r.Employee)
                 .ThenInclude(e => e.AdministrativeData)
-                .ThenInclude(a => a.Section)
                 .Where(r => r.Status == "قيد_الانتظار" &&
-                            r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentManager.Id)
+                    (r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentManager.Id ||
+                     r.Employee.AdministrativeData.SubDepartment.ManagerEmployeeId == currentManager.Id ||
+                     r.Employee.AdministrativeData.Department.ManagerEmployeeId == currentManager.Id))
                 .ToListAsync();
 
             return Ok(requests);
         }
-
-        // 3. عرض طلباتي الخاصة للموظف
+        // 3. جلب طلبات الموظف الشخصية
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
         {
@@ -89,7 +85,7 @@ namespace HRMS_Backend.Controllers
             return Ok(myRequests);
         }
 
-        // 4. قرار المدير (موافقة أو رفض)
+        // 4. قرار المدير (موافقة أو رفض) حسب مدير القسم
         [HttpPost("manager-decision/{id}")]
         public async Task<IActionResult> ManagerDecision(int id, bool approve)
         {
@@ -103,58 +99,47 @@ namespace HRMS_Backend.Controllers
                 return NotFound("الطلب غير موجود");
 
             var currentUserId = int.Parse(User.FindFirstValue("UserId"));
-            var currentManager = await _context.Employees
-                .Include(e => e.AdministrativeData)
-                .ThenInclude(a => a.Section)
-                .FirstOrDefaultAsync(e => e.UserId == currentUserId);
 
-            // تحقق من كونه مدير الشعبة المسؤول
-            if (request.Employee.AdministrativeData?.Section?.ManagerEmployeeId != currentManager.Id)
-                return Unauthorized("لست مدير الشعبة المخول لهذا الموظف");
+            // تحقق أن المدير الحالي هو مدير قسم الموظف
+            if (request.Employee.AdministrativeData.Section.ManagerEmployeeId != currentUserId &&
+                !User.IsInRole("SuperAdmin"))
+            {
+                return Forbid("لست مدير القسم المخول لاتخاذ قرار لهذا الموظف");
+            }
 
             request.Status = approve ? "تمت_الموافقة" : "مرفوض";
-            if (approve) request.IsHrNotified = true;
+
+            // إضافة تنبيه للموظف
+            _context.Notifications.Add(new Notification
+            {
+                UserId = request.Employee.UserId,
+                Title = "تحديث طلب إذن خروج",
+                Message = $"تم {request.Status} على طلب إذن الخروج الخاص بك",
+                CreatedAt = DateTime.Now
+            });
 
             await _context.SaveChangesAsync();
-            return Ok(new { Message = approve ? "تمت الموافقة" : "تم الرفض" });
+            return Ok(new { Message = $"تم {request.Status} بنجاح" });
         }
 
-        // 5. عرض الأذونات المعتمدة للإدارة المسؤولة
+        // 5. عرض الأذونات المعتمدة بدون التحقق المعقد
         [HttpGet("approved-view")]
         public async Task<IActionResult> GetApproved()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees
-                .Include(e => e.AdministrativeData)
-                .ThenInclude(a => a.Section)
-                .FirstOrDefaultAsync(e => e.UserId == userId);
 
-            // إعدادات المسار
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.ExitPermit);
-
-            // صلاحية المستخدم
             var hasPermission = await _context.UserPermissions
                 .AnyAsync(p => p.UserId == userId && p.PermissionId == 17 && p.IsAllowed);
 
-            // جلب الإدارة الفرعية المستهدفة من الإعدادات
-            var targetSubDept = await _context.SubDepartments
-                .FirstOrDefaultAsync(sd => sd.Id == setting.TargetSubDepartmentId);
+            if (!hasPermission && !User.IsInRole("SuperAdmin"))
+                return Forbid();
 
-            // التحقق إذا الموظف هو مدير هذه الإدارة الفرعية
-            var isResponsible = targetSubDept != null && targetSubDept.ManagerEmployeeId == currentEmp.Id;
+            var requests = await _context.ExitPermitRequests
+                .Include(r => r.Employee)
+                .Where(r => r.Status == "تمت_الموافقة")
+                .ToListAsync();
 
-            if (User.IsInRole("SuperAdmin") || (isResponsible && hasPermission))
-            {
-                var requests = await _context.ExitPermitRequests
-                    .Include(r => r.Employee)
-                    .Where(r => r.Status == "تمت_الموافقة")
-                    .ToListAsync();
-                return Ok(requests);
-            }
-
-            return Forbid();
+            return Ok(requests);
         }
-        
     }
-
 }

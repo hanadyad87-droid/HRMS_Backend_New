@@ -28,7 +28,6 @@ namespace HRMS_Backend.Controllers
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
             var emp = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == userId);
-
             if (emp == null) return NotFound("الموظف غير موجود");
 
             string? imagePath = null;
@@ -37,13 +36,12 @@ namespace HRMS_Backend.Controllers
                 var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads/maintenance");
                 if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
-                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(dto.ImageFile.FileName);
+                var fileName = Guid.NewGuid() + Path.GetExtension(dto.ImageFile.FileName);
                 var filePath = Path.Combine(uploadsFolder, fileName);
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await dto.ImageFile.CopyToAsync(stream);
-                }
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await dto.ImageFile.CopyToAsync(stream);
+
                 imagePath = "/uploads/maintenance/" + fileName;
             }
 
@@ -60,15 +58,14 @@ namespace HRMS_Backend.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { Message = "تم إرسال طلب الصيانة بنجاح", Photo = imagePath });
         }
+
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
             var employee = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == userId);
-
             if (employee == null) return NotFound("الموظف غير موجود");
 
-            // جلب طلبات الصيانة الخاصة بهذا الموظف فقط
             var myRequests = await _context.MaintenanceRequests
                 .Where(r => r.EmployeeId == employee.Id)
                 .OrderByDescending(r => r.Id)
@@ -110,13 +107,13 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> Decision(int id, bool fixedStatus)
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
+            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData)
+                                                     .FirstOrDefaultAsync(e => e.UserId == userId);
+            var setting = await _context.RequestSettings
+                                        .FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
 
             if (!User.IsInRole("SuperAdmin") && (setting == null || currentEmp.AdministrativeData?.SubDepartmentId != setting.TargetSubDepartmentId))
-            {
                 return Unauthorized("ليس لديك صلاحية اتخاذ قرار");
-            }
 
             var request = await _context.MaintenanceRequests.FindAsync(id);
             if (request == null) return NotFound();

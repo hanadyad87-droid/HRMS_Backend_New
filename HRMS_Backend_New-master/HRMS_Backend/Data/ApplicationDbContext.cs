@@ -264,6 +264,11 @@ new RolePermission { RoleId = 1, PermissionId = 14 },
 // ================= SubDepartmentManager =================
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
 new RolePermission { RoleId = 4, PermissionId = 10 }, // ViewDepartmentEmployees
+new RolePermission { RoleId = 4, PermissionId = 16 },
+new RolePermission { RoleId = 4, PermissionId = 15 },// ManageSalaryCertificates
+new RolePermission { RoleId = 4, PermissionId = 17 }, // ManageExitPermits
+new RolePermission { RoleId = 4, PermissionId = 18 }, // ManageDataUpdates
+
 
      // ================= Employee (افتراضي) =================
      new RolePermission { RoleId = 6, PermissionId = 4 },  // ViewEmployee

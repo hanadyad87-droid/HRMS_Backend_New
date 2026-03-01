@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260227015706_SeedRequestSettingsData")]
+    partial class SeedRequestSettingsData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1384,8 +1387,6 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TargetSubDepartmentId");
-
                     b.ToTable("RequestSettings");
                 });
 
@@ -1834,17 +1835,6 @@ namespace HRMS_Backend.Migrations
                     b.Navigation("ManagerEmployee");
 
                     b.Navigation("PreviousManager");
-                });
-
-            modelBuilder.Entity("RequestSetting", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.subDepartment", "TargetSubDepartment")
-                        .WithMany()
-                        .HasForeignKey("TargetSubDepartmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TargetSubDepartment");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Department", b =>

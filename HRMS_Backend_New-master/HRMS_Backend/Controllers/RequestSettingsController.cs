@@ -37,8 +37,31 @@ namespace HRMS_Backend.Controllers
         [HttpGet("all-routings")]
         public async Task<IActionResult> GetAllRoutings()
         {
-            var settings = await _context.RequestSettings.ToListAsync();
-            return Ok(settings);
+            var settings = await _context.RequestSettings
+                .Include(s => s.TargetSubDepartment)        // ربط الإدارة الفرعية
+                .ThenInclude(d => d.ManagerEmployee)       // ربط المدير الحالي
+                .Include(s => s.TargetSubDepartment)
+                .ThenInclude(d => d.Department)            // ربط الإدارة الرئيسية (اختياري)
+                .ToListAsync();
+
+            var result = settings.Select(s => new
+            {
+                s.Id,
+                RequestType = Enum.IsDefined(typeof(RequestType), s.RequestType)
+              ? s.RequestType.ToString()
+              : "غير محدد",
+                SubDepartment = s.TargetSubDepartment != null ? new
+                {
+                    s.TargetSubDepartment.Id,
+                    s.TargetSubDepartment.Name,
+                    DepartmentName = s.TargetSubDepartment.Department?.Name ?? "غير محدد",
+                    ManagerName = s.TargetSubDepartment.ManagerEmployee != null
+                        ? s.TargetSubDepartment.ManagerEmployee.FullName
+                        : "غير محدد"
+                } : null
+            });
+
+            return Ok(result);
         }
 
         // 3. تحديد التوجيه (باستخدام الـ Enum لضمان ظهور القائمة في Swagger)
