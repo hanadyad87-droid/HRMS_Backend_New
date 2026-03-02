@@ -37,6 +37,7 @@ namespace HRMS_Backend.Controllers
             await _context.SaveChangesAsync();
             return Ok("تم إرسال طلب شهادة المرتب بنجاح");
         }
+
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
         {
@@ -45,7 +46,6 @@ namespace HRMS_Backend.Controllers
 
             if (employee == null) return NotFound("الموظف غير موجود");
 
-            // جلب طلبات شهادة المرتب الخاصة بهذا الموظف فقط
             var myRequests = await _context.SalaryCertificateRequests
                 .Where(r => r.EmployeeId == employee.Id)
                 .OrderByDescending(r => r.Id)
@@ -58,54 +58,122 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees
-                                           .Include(e => e.AdministrativeData)
-                                           .FirstOrDefaultAsync(e => e.UserId == userId);
+            var user = await _context.Users
+                .Include(u => u.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            // البحث باستخدام الـ Enum
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
+            if (user == null || user.Employee == null)
+                return Unauthorized();
 
-            // التأكد من الصلاحية
-            var hasPermission = await _context.UserPermissions
-                .AnyAsync(p => p.UserId == userId && p.PermissionId == 16 && p.IsAllowed);
+            var setting = await _context.RequestSettings
+                .FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
 
-            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
+            if (setting == null)
+                return BadRequest("ما فيش إعدادات لطلب شهادة المرتب");
+
+            var targetSubDeptId = setting.TargetSubDepartmentId;
+            var userSubDeptId = user.Employee.AdministrativeData?.SubDepartmentId;
+
+            var isInTargetDept = userSubDeptId == targetSubDeptId;
+
+            // صلاحية وحدة شاملة
+            var hasPermission =
+                user.UserRoles
+                    .SelectMany(ur => ur.Role.RolePermissions)
+                    .Any(rp => rp.Permission.PermissionName == "ManageSalaryCertificates")
+                ||
+                await _context.UserPermissions
+                    .Include(up => up.Permission)
+                    .AnyAsync(up =>
+                        up.UserId == userId &&
+                        up.Permission.PermissionName == "ManageSalaryCertificates" &&
+                        up.IsAllowed);
+
+            // SuperAdmin
+            if (user.UserRoles.Any(r => r.Role.RoleName == "SuperAdmin"))
             {
-                // جلب كل الطلبات المعلقة دون النظر إلى SubDepartmentId
-                var requests = await _context.SalaryCertificateRequests
+                return Ok(await _context.SalaryCertificateRequests
                     .Include(r => r.Employee)
                     .Where(r => r.Status == "قيد_الانتظار")
-                    .ToListAsync();
+                    .ToListAsync());
+            }
 
-                return Ok(requests);
+            // نفس الإدارة + عنده الصلاحية
+            if (isInTargetDept && hasPermission)
+            {
+                return Ok(await _context.SalaryCertificateRequests
+                    .Include(r => r.Employee)
+                    .Where(r => r.Status == "قيد_الانتظار")
+                    .ToListAsync());
             }
 
             return Forbid();
         }
+
         [HttpPost("decision/{id}")]
         public async Task<IActionResult> Decision(int id, bool isReady)
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData).FirstOrDefaultAsync(e => e.UserId == userId);
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
+            var user = await _context.Users
+                .Include(u => u.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            // إضافة تشيك الصلاحية هنا أيضاً للأمان
-            var hasPermission = User.Claims.Any(c => c.Type == "Permission" && c.Value == "ManageSalaryCertificates");
+            if (user == null || user.Employee == null)
+                return Unauthorized();
 
-            if (!User.IsInRole("SuperAdmin") && (!hasPermission || currentEmp.AdministrativeData?.SubDepartmentId != setting?.TargetSubDepartmentId))
-                return StatusCode(403, "ليس لديك صلاحية اتخاذ قرار على هذا الطلب");
+            var setting = await _context.RequestSettings
+                .FirstOrDefaultAsync(s => s.RequestType == RequestType.SalaryCertificate);
 
-            var request = await _context.SalaryCertificateRequests.FindAsync(id);
+            if (setting == null)
+                return BadRequest("ما فيش إعدادات لطلب شهادة المرتب");
+
+            var targetSubDeptId = setting.TargetSubDepartmentId;
+            var userSubDeptId = user.Employee.AdministrativeData?.SubDepartmentId;
+
+            var isInTargetDept = userSubDeptId == targetSubDeptId;
+
+            var hasPermission =
+                user.UserRoles
+                    .SelectMany(ur => ur.Role.RolePermissions)
+                    .Any(rp => rp.Permission.PermissionName == "ManageSalaryCertificates")
+                ||
+                await _context.UserPermissions
+                    .Include(up => up.Permission)
+                    .AnyAsync(up =>
+                        up.UserId == userId &&
+                        up.Permission.PermissionName == "ManageSalaryCertificates" &&
+                        up.IsAllowed);
+
+            var isSuperAdmin = user.UserRoles.Any(r => r.Role.RoleName == "SuperAdmin");
+
+            if (!isSuperAdmin && !(isInTargetDept && hasPermission))
+                return Unauthorized("ليس لديك صلاحية اتخاذ قرار");
+
+            var request = await _context.SalaryCertificateRequests
+                .Include(r => r.Employee)
+                .ThenInclude(e => e.User)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (request == null) return NotFound("الطلب غير موجود");
 
             request.Status = isReady ? "جاهزة" : "مرفوض";
 
-            // فكرة من كود الإجازات: إضافة تنبيه للموظف أن طلبه جهز
+            // إشعار للموظف (اختياري لكنه ممتاز)
             _context.Notifications.Add(new Notification
             {
-                UserId = request.Employee.UserId, // تأكدي من عمل Include للموظف قبل هذا السطر
+                UserId = request.Employee.UserId,
                 Title = "تحديث طلب شهادة مرتب",
-                Message = $"طلبك أصبح حالته: {request.Status}",
+                Message = $"تم تحديث حالة طلبك إلى: {request.Status}",
                 CreatedAt = DateTime.Now
             });
 

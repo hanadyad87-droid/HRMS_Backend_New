@@ -78,26 +78,54 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetPending()
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees
-                                           .Include(e => e.AdministrativeData)
-                                           .FirstOrDefaultAsync(e => e.UserId == userId);
+            var user = await _context.Users
+                .Include(u => u.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            // البحث باستخدام الـ Enum
-            var setting = await _context.RequestSettings.FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
+            if (user == null || user.Employee == null)
+                return Unauthorized();
 
-            // التأكد من الصلاحية
-            var hasPermission = await _context.UserPermissions
-                .AnyAsync(p => p.UserId == userId && p.PermissionId == 15 && p.IsAllowed);
+            var setting = await _context.RequestSettings
+                .FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
 
-            if (User.IsInRole("SuperAdmin") || (setting != null && hasPermission))
+            if (setting == null)
+                return BadRequest("ما فيش إعدادات لطلب الصيانة");
+
+            var targetSubDeptId = setting.TargetSubDepartmentId;
+            var userSubDeptId = user.Employee.AdministrativeData?.SubDepartmentId;
+
+            var isInTargetDept = userSubDeptId == targetSubDeptId;
+
+            var hasManagePermission =
+                user.UserRoles
+                    .SelectMany(ur => ur.Role.RolePermissions)
+                    .Any(rp => rp.Permission.PermissionName == "ManageMaintenance")
+                ||
+                await _context.UserPermissions
+                    .Include(up => up.Permission)
+                    .AnyAsync(up => up.UserId == userId &&
+                                    up.Permission.PermissionName == "ManageMaintenance" &&
+                                    up.IsAllowed);
+
+            var isSuperAdmin = user.UserRoles.Any(r => r.Role.RoleName == "SuperAdmin");
+
+            if (isSuperAdmin)
             {
-                // جلب كل طلبات الصيانة المعلقة دون النظر إلى SubDepartmentId
-                var requests = await _context.MaintenanceRequests
+                return Ok(await _context.MaintenanceRequests
                     .Include(r => r.Employee)
-                    .Where(r => r.Status == "قيد_الانتظار")
-                    .ToListAsync();
+                    .ToListAsync());
+            }
 
-                return Ok(requests);
+            if (isInTargetDept && hasManagePermission)
+            {
+                return Ok(await _context.MaintenanceRequests
+                    .Include(r => r.Employee)
+                    .ToListAsync());
             }
 
             return Forbid();
@@ -107,19 +135,52 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> Decision(int id, bool fixedStatus)
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
-            var currentEmp = await _context.Employees.Include(e => e.AdministrativeData)
-                                                     .FirstOrDefaultAsync(e => e.UserId == userId);
-            var setting = await _context.RequestSettings
-                                        .FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
+            var user = await _context.Users
+                .Include(u => u.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            if (!User.IsInRole("SuperAdmin") && (setting == null || currentEmp.AdministrativeData?.SubDepartmentId != setting.TargetSubDepartmentId))
+            if (user == null || user.Employee == null)
+                return Unauthorized();
+
+            var setting = await _context.RequestSettings
+                .FirstOrDefaultAsync(s => s.RequestType == RequestType.Maintenance);
+
+            if (setting == null)
+                return BadRequest("ما فيش إعدادات لطلب الصيانة");
+
+            var targetSubDeptId = setting.TargetSubDepartmentId;
+            var userSubDeptId = user.Employee.AdministrativeData?.SubDepartmentId;
+
+            var isInTargetDept = userSubDeptId == targetSubDeptId;
+
+            var hasManagePermission =
+                user.UserRoles
+                    .SelectMany(ur => ur.Role.RolePermissions)
+                    .Any(rp => rp.Permission.PermissionName == "ManageMaintenance")
+                ||
+                await _context.UserPermissions
+                    .Include(up => up.Permission)
+                    .AnyAsync(up => up.UserId == userId &&
+                                    up.Permission.PermissionName == "ManageMaintenance" &&
+                                    up.IsAllowed);
+
+            var isSuperAdmin = user.UserRoles.Any(r => r.Role.RoleName == "SuperAdmin");
+
+            if (!isSuperAdmin && !(isInTargetDept && hasManagePermission))
                 return Unauthorized("ليس لديك صلاحية اتخاذ قرار");
 
             var request = await _context.MaintenanceRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            if (request == null)
+                return NotFound();
 
-            request.Status = fixedStatus ? "تم_الإصلاح" : "مرفوض";
+            request.Status = fixedStatus ? "تمت-الموافقة" : "مرفوض";
             await _context.SaveChangesAsync();
+
             return Ok($"تم تحديث حالة الطلب إلى: {request.Status}");
         }
     }
