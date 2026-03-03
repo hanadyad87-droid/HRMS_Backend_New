@@ -278,7 +278,8 @@ new RolePermission { RoleId = 4, PermissionId = 18 }, // ManageDataUpdates
 
      // ================= SectionManager =================
      new RolePermission { RoleId = 5, PermissionId = 5 },  // ApproveLeave
-     new RolePermission { RoleId = 5, PermissionId = 10 }, // ViewDepartmentEmployees
+     new RolePermission { RoleId = 5, PermissionId = 10 },
+     new RolePermission { RoleId = 5, PermissionId = 17 },// ViewDepartmentEmployees
 
      // ================= DepartmentManager =================
      new RolePermission { RoleId = 3, PermissionId = 5 },
