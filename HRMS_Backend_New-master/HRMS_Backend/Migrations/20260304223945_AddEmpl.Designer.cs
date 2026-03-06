@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304223945_AddEmpl")]
+    partial class AddEmpl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1271,101 +1274,6 @@ namespace HRMS_Backend.Migrations
                     b.ToTable("Sections");
                 });
 
-            modelBuilder.Entity("HRMS_Backend.Models.TaskAssignment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AssignedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("AttachmentPath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EmployeeAttachment")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EmployeeComment")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ManagerDecision")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("SectionId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedByEmployeeId");
-
-                    b.HasIndex("EmployeeId");
-
-                    b.HasIndex("SectionId");
-
-                    b.ToTable("TaskAssignments");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.TaskComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AttachmentPath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TaskAssignmentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskAssignmentId");
-
-                    b.ToTable("TaskComments");
-                });
-
             modelBuilder.Entity("HRMS_Backend.Models.UserPermission", b =>
                 {
                     b.Property<int>("UserId")
@@ -1851,44 +1759,6 @@ namespace HRMS_Backend.Migrations
                     b.Navigation("PreviousManager");
 
                     b.Navigation("SubDepartment");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.TaskAssignment", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.Employee", "AssignedBy")
-                        .WithMany()
-                        .HasForeignKey("AssignedByEmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HRMS_Backend.Models.Employee", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HRMS_Backend.Models.Section", "Section")
-                        .WithMany()
-                        .HasForeignKey("SectionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AssignedBy");
-
-                    b.Navigation("Employee");
-
-                    b.Navigation("Section");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.TaskComment", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.TaskAssignment", "TaskAssignment")
-                        .WithMany()
-                        .HasForeignKey("TaskAssignmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TaskAssignment");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.UserPermission", b =>

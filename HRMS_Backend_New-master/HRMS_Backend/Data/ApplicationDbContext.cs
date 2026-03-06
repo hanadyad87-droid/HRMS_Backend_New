@@ -48,7 +48,8 @@ namespace HRMS_Backend.Data
         public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
         public DbSet<SalaryCertificateRequest> SalaryCertificateRequests { get; set; }
         public DbSet<RequestSetting> RequestSettings { get; set; }
-
+        public DbSet<TaskAssignment> TaskAssignments { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -146,6 +147,27 @@ namespace HRMS_Backend.Data
                       .WithMany()
                       .HasForeignKey(s => s.PreviousManagerId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<TaskAssignment>(entity =>
+            {
+                entity.HasOne(t => t.Employee)
+                      .WithMany()
+                      .HasForeignKey(t => t.EmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.AssignedBy)
+                      .WithMany()
+                      .HasForeignKey(t => t.AssignedByEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // ✨ تحويل enums إلى نصوص
+                entity.Property(t => t.Status)
+                      .HasConversion<string>()
+                      .HasMaxLength(50); // خيار آمن لطول النص
+
+                entity.Property(t => t.ManagerDecision)
+                      .HasConversion<string>()
+                      .HasMaxLength(50);
             });
             modelBuilder.Entity<Section>(entity =>
             {
@@ -264,10 +286,7 @@ new RolePermission { RoleId = 1, PermissionId = 14 },
 // ================= SubDepartmentManager =================
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
 new RolePermission { RoleId = 4, PermissionId = 10 }, // ViewDepartmentEmployees
-new RolePermission { RoleId = 4, PermissionId = 16 },
-new RolePermission { RoleId = 4, PermissionId = 15 },// ManageSalaryCertificates
-new RolePermission { RoleId = 4, PermissionId = 17 }, // ManageExitPermits
-new RolePermission { RoleId = 4, PermissionId = 18 }, // ManageDataUpdates
+
 
 
      // ================= Employee (افتراضي) =================

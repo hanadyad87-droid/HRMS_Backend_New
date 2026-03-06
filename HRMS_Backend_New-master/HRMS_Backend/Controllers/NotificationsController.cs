@@ -2,6 +2,8 @@
 using HRMS_Backend.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+
 namespace HRMS_Backend.Controllers
 {
     [Route("api/[controller]")]
@@ -15,36 +17,45 @@ namespace HRMS_Backend.Controllers
             _context = context;
         }
 
-        //  جلب إشعاراتي
+        // 🔹 جلب إشعارات الموظف الحالي
         [HttpGet]
         public IActionResult GetMyNotifications()
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            // الحصول على EmployeeId من الـJWT
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (employeeIdClaim == null)
+                return Unauthorized("EmployeeId missing in token.");
+
+            var employeeId = int.Parse(employeeIdClaim);
 
             var notifications = _context.Notifications
-                .Where(n => n.UserId == userId)
+                .Where(n => n.UserId == employeeId)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToList();
 
             return Ok(notifications);
         }
 
-        // ✔ تعليم الإشعار كمقروء
+        // 🔹 تعليم إشعار كمقروء
         [HttpPut("{id}/read")]
         public IActionResult MarkAsRead(int id)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (employeeIdClaim == null)
+                return Unauthorized("EmployeeId missing in token.");
+
+            var employeeId = int.Parse(employeeIdClaim);
 
             var notification = _context.Notifications
-                .FirstOrDefault(n => n.Id == id && n.UserId == userId);
+                .FirstOrDefault(n => n.Id == id && n.UserId == employeeId);
 
             if (notification == null)
-                return NotFound();
+                return NotFound("Notification not found or does not belong to you.");
 
             notification.IsRead = true;
             _context.SaveChanges();
 
-            return Ok();
+            return Ok("Notification marked as read.");
         }
     }
 }

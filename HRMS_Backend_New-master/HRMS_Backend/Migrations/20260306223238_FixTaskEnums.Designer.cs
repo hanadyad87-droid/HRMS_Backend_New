@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306223238_FixTaskEnums")]
+    partial class FixTaskEnums
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1335,37 +1338,6 @@ namespace HRMS_Backend.Migrations
                     b.ToTable("TaskAssignments");
                 });
 
-            modelBuilder.Entity("HRMS_Backend.Models.TaskComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AttachmentPath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TaskAssignmentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskAssignmentId");
-
-                    b.ToTable("TaskComments");
-                });
-
             modelBuilder.Entity("HRMS_Backend.Models.UserPermission", b =>
                 {
                     b.Property<int>("UserId")
@@ -1878,17 +1850,6 @@ namespace HRMS_Backend.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("Section");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.TaskComment", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.TaskAssignment", "TaskAssignment")
-                        .WithMany()
-                        .HasForeignKey("TaskAssignmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TaskAssignment");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.UserPermission", b =>
