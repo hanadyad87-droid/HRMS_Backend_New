@@ -19,19 +19,26 @@ namespace HRMS_Backend.Controllers
         {
             _context = context;
         }
-        [HttpGet("section-employees/{sectionId}")]
-        public IActionResult GetSectionEmployees(int sectionId)
+        [HttpGet("section-employees")]
+        public IActionResult GetSectionEmployees()
         {
-            var employees = _context.EmployeeAdministrativeDatas
-     .Include(a => a.Employee)
-     .Where(a => a.SectionId == sectionId)
-     .Select(a => new
-     {
-         a.Employee.Id,
-         a.Employee.FullName
-     })
-     .ToList();
+            var managerId = int.Parse(User.Claims.First(c => c.Type == "EmployeeId").Value);
 
+            var section = _context.Sections
+                .FirstOrDefault(s => s.ManagerEmployeeId == managerId);
+
+            if (section == null)
+                return NotFound("لا يوجد قسم مرتبط بك");
+
+            var employees = _context.EmployeeAdministrativeDatas
+                .Include(a => a.Employee)
+                .Where(a => a.SectionId == section.Id)
+                .Select(a => new
+                {
+                    a.Employee.Id,
+                    a.Employee.FullName
+                })
+                .ToList();
 
             return Ok(employees);
         }
@@ -148,10 +155,12 @@ namespace HRMS_Backend.Controllers
                     Manager = t.AssignedBy.FullName,
                     Section = t.Section.Name,
                     t.AttachmentPath,
+                    ManagerDecision = t.ManagerDecision,
                     // =================== تعديل الألوان ===================
                     Color = t.EndDate < now ? "red" :                     // انتهت المهمة
                             t.EndDate < now.AddDays(1) ? "orange" :     // قربت تنتهي خلال 24 ساعة
                             "default"                                  // باقي المهام
+
                 })
                 .ToList();
 
@@ -249,7 +258,6 @@ namespace HRMS_Backend.Controllers
             var task = await _context.TaskAssignments.FindAsync(taskId);
             if (task == null) return NotFound();
 
-            // حفظ المرفق إذا وجد
             string? filePath = null;
             if (dto.Attachment != null)
             {
@@ -275,27 +283,17 @@ namespace HRMS_Backend.Controllers
             };
             _context.TaskComments.Add(comment);
 
-            // تحديد من يجب أن يصل إليه الإشعار
-            int notifyUserId;
+            // إشعار مع نص احتياطي إذا كان التعليق يحتوي على ملف فقط
             string employeeName = _context.Employees.Find(employeeId)?.FullName ?? "Unknown";
+            string commentText = string.IsNullOrWhiteSpace(dto.Comment) && dto.Attachment != null ? "(تم إرسال مرفق)" : dto.Comment;
 
-            if (employeeId == task.EmployeeId)
-            {
-                // التعليق من الموظف → إشعار للمدير
-                notifyUserId = task.AssignedByEmployeeId;
-            }
-            else
-            {
-                // التعليق من المدير → إشعار للموظف
-                notifyUserId = task.EmployeeId;
-            }
+            int notifyUserId = employeeId == task.EmployeeId ? task.AssignedByEmployeeId : task.EmployeeId;
 
-            // إضافة الإشعار
             _context.Notifications.Add(new Notification
             {
                 UserId = notifyUserId,
                 Title = "تعليق جديد على المهمة",
-                Message = $"{employeeName}: {dto.Comment}",
+                Message = $"{employeeName}: {commentText}",
                 CreatedAt = DateTime.Now
             });
 
@@ -309,13 +307,12 @@ namespace HRMS_Backend.Controllers
         {
             var comments = _context.TaskComments
                 .Include(c => c.TaskAssignment)
-                    .ThenInclude(t => t.Employee) // جلب الموظف الذي كُلف بالمهمة
-                .Include(c => c.TaskAssignment.AssignedBy) // جلب المدير إذا احتجنا
                 .Where(c => c.TaskAssignmentId == taskId)
                 .Select(c => new TaskCommentDto
                 {
                     Comment = c.Comment,
                     AttachmentPath = c.AttachmentPath,
+                    AttachmentUrl = string.IsNullOrEmpty(c.AttachmentPath) ? null : $"{Request.Scheme}://{Request.Host}/{c.AttachmentPath}",
                     EmployeeName = _context.Employees
                         .Where(e => e.Id == c.EmployeeId)
                         .Select(e => e.FullName)
