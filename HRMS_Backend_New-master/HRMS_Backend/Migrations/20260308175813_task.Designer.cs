@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260308175813_task")]
+    partial class task
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -821,53 +824,6 @@ namespace HRMS_Backend.Migrations
                     b.HasIndex("EmployeeId");
 
                     b.ToTable("MaintenanceRequests");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.ManagerDelegation", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ActingManagerId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AssignedById")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EntityId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("OriginalManagerId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActingManagerId");
-
-                    b.HasIndex("AssignedById");
-
-                    b.HasIndex("OriginalManagerId");
-
-                    b.ToTable("ManagerDelegations");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.MaritalStatus", b =>
@@ -1832,33 +1788,6 @@ namespace HRMS_Backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
-                });
-
-            modelBuilder.Entity("HRMS_Backend.Models.ManagerDelegation", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.Employee", "ActingManager")
-                        .WithMany()
-                        .HasForeignKey("ActingManagerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HRMS_Backend.Models.Employee", "AssignedBy")
-                        .WithMany()
-                        .HasForeignKey("AssignedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HRMS_Backend.Models.Employee", "OriginalManager")
-                        .WithMany()
-                        .HasForeignKey("OriginalManagerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ActingManager");
-
-                    b.Navigation("AssignedBy");
-
-                    b.Navigation("OriginalManager");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Notification", b =>

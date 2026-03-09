@@ -23,7 +23,7 @@ namespace HRMS_Backend.Controllers
         }
 
         // -------------------------
-        // Register
+        // 1. تسجيل مستخدم جديد
         // -------------------------
         [HttpPost("register")]
         public IActionResult Register(RegisterUserDto dto)
@@ -37,7 +37,6 @@ namespace HRMS_Backend.Controllers
                 PasswordHash = HashPassword(dto.Password)
             };
 
-            // إضافة الدور
             var role = _context.Roles.Find(dto.RoleId);
             if (role != null)
                 user.UserRoles.Add(new UserRole { User = user, Role = role });
@@ -49,33 +48,31 @@ namespace HRMS_Backend.Controllers
         }
 
         // -------------------------
-        // Login
+        // 2. تسجيل الدخول (Login)
         // -------------------------
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
             var hashed = HashPassword(request.Password);
 
+            // جلب المستخدم مع أدواره وصلاحياته
             var user = _context.Users
                 .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
-                        .ThenInclude(r => r.RolePermissions)
-                            .ThenInclude(rp => rp.Permission)
                 .FirstOrDefault(u => u.Username == request.Username && u.PasswordHash == hashed);
 
             if (user == null)
                 return Unauthorized("اسم المستخدم أو كلمة المرور خاطئة");
 
-            // جلب الموظف المرتبط باليوزر (اختياري)
+            // جلب بيانات الموظف المرتبطة بهذا المستخدم
             var employee = _context.Employees.FirstOrDefault(e => e.UserId == user.Id);
 
-            // توليد التوكن مع الصلاحيات
+            // توليد التوكن (هنا تتم عملية حقن صلاحيات المدير المكلف)
             var token = GenerateJwtToken(user, employee);
 
             return Ok(new
             {
                 token,
-              
                 roles = user.UserRoles.Select(ur => new { ur.Role.Id, ur.Role.RoleName }),
                 employeeId = employee?.Id,
                 employeeName = employee?.FullName
@@ -83,7 +80,7 @@ namespace HRMS_Backend.Controllers
         }
 
         // -------------------------
-        // Hash Password
+        // 3. تشفير كلمة المرور
         // -------------------------
         private string HashPassword(string password)
         {
@@ -93,35 +90,54 @@ namespace HRMS_Backend.Controllers
             return Convert.ToBase64String(hash);
         }
 
-        // -------------------------
-        // Generate JWT with Permissions
-        // -------------------------
+        // ---------------------------------------------------------
+        // 4. توليد التوكن مع منطق انتقال السلطات (Delegation Logic)
+        // ---------------------------------------------------------
         private string GenerateJwtToken(User user, Employee employee)
         {
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username ?? ""),
+                new Claim(ClaimTypes.Name, user.Username),
                 new Claim("UserId", user.Id.ToString()),
-                new Claim("EmployeeId", employee?.Id.ToString() ?? ""),
+                new Claim("EmployeeId", employee?.Id.ToString() ?? "0"),
                 new Claim("FullName", employee?.FullName ?? "")
             };
 
-            // إضافة Roles و Permissions لكل دور
+            // أ. إضافة الأدوار الأصلية (المخزنة في جدول الأدوار)
             foreach (var userRole in user.UserRoles)
             {
-                var role = userRole.Role;
-                claims.Add(new Claim(ClaimTypes.Role, role.RoleName));
-                claims.Add(new Claim("RoleId", role.Id.ToString()));
-
-                // جلب صلاحيات الدور
-                // var permissions = role.RolePermissions.Select(rp => rp.Permission.PermissionName).ToList();
-                // foreach (var perm in permissions)
-                // {
-                //    claims.Add(new Claim("permission", perm));
-                //}
+                claims.Add(new Claim(ClaimTypes.Role, userRole.Role.RoleName));
+                claims.Add(new Claim("RoleId", userRole.Role.Id.ToString()));
             }
 
+            // ب. إضافة صلاحيات "المدير المكلف" أوتوماتيكياً
+            if (employee != null)
+            {
+                // نبحث عن أي تكليف نشط لهذا الموظف في جدول التكليفات
+                var activeDelegation = _context.ManagerDelegations
+                    .AsNoTracking() // لضمان قراءة أحدث حالة من قاعدة البيانات
+                    .FirstOrDefault(d => d.ActingManagerId == employee.Id && d.IsActive == true);
+
+                if (activeDelegation != null)
+                {
+                    // إذا وجدنا تكليفاً، نضيف Role المدير للتوكن فوراً
+                    if (activeDelegation.EntityType == "Section")
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, "SectionManager"));
+                    }
+                    else if (activeDelegation.EntityType == "SubDepartment")
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, "SubDepartmentManager"));
+                    }
+
+                    // علامات إضافية تفيد في الفلاتر والباكيند
+                    claims.Add(new Claim("IsActingManager", "true"));
+                    claims.Add(new Claim("DelegatedEntityId", activeDelegation.EntityId.ToString()));
+                }
+            }
+
+            // إعدادات التوكن السرية
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperSecretKeyForJWTAuthentication1234567890"));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -135,9 +151,7 @@ namespace HRMS_Backend.Controllers
         }
     }
 
-    // -------------------------
-    // Login Request DTO
-    // -------------------------
+    // الـ DTO الخاص بطلب الدخول
     public class LoginRequest
     {
         public string Username { get; set; } = null!;

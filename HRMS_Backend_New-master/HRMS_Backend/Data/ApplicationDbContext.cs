@@ -50,12 +50,31 @@ namespace HRMS_Backend.Data
         public DbSet<RequestSetting> RequestSettings { get; set; }
         public DbSet<TaskAssignment> TaskAssignments { get; set; }
         public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<ManagerDelegation> ManagerDelegations { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<ManagerDelegation>()
+        .HasOne(d => d.ActingManager)
+        .WithMany()
+        .HasForeignKey(d => d.ActingManagerId)
+        .OnDelete(DeleteBehavior.Restrict); // أو DeleteBehavior.NoAction
 
-            // 🔐 Employee PublicId Unique
-            modelBuilder.Entity<Employee>()
+            modelBuilder.Entity<ManagerDelegation>()
+                .HasOne(d => d.OriginalManager)
+                .WithMany()
+                .HasForeignKey(d => d.OriginalManagerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ManagerDelegation>()
+                .HasOne(d => d.AssignedBy)
+                .WithMany()
+                .HasForeignKey(d => d.AssignedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        
+
+        // 🔐 Employee PublicId Unique
+        modelBuilder.Entity<Employee>()
                 .HasIndex(e => e.PublicId)
                 .IsUnique();
 
