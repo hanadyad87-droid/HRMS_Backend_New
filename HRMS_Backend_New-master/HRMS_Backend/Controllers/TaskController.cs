@@ -243,6 +243,7 @@ namespace HRMS_Backend.Controllers
                     t.EndDate,
                     t.Status,
                     Employee = t.Employee.FullName,
+                    ManagerDecision = t.ManagerDecision,
                     Color = t.EndDate < now ? "red" :
                             t.EndDate < now.AddDays(1) ? "orange" :
                             "default"
