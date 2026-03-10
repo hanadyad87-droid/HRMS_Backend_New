@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260310202728_AddCompanyFormsTable")]
+    partial class AddCompanyFormsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,42 +24,6 @@ namespace HRMS_Backend.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("CompanyForm", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UploadedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UploadedByEmployeeId");
-
-                    b.ToTable("CompanyForms");
-                });
 
             modelBuilder.Entity("Complaint", b =>
                 {
@@ -182,6 +149,47 @@ namespace HRMS_Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("BankBranches");
+                });
+
+            modelBuilder.Entity("HRMS_Backend.Models.CompanyForm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedByEmployeeId");
+
+                    b.ToTable("CompanyForms");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.DataUpdateRequest", b =>
@@ -1103,11 +1111,6 @@ namespace HRMS_Backend.Migrations
                         {
                             Id = 18,
                             PermissionName = "ManageDataUpdates"
-                        },
-                        new
-                        {
-                            Id = 19,
-                            PermissionName = "ManageForms"
                         });
                 });
 
@@ -1225,11 +1228,6 @@ namespace HRMS_Backend.Migrations
                         {
                             RoleId = 4,
                             PermissionId = 10
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 19
                         },
                         new
                         {
@@ -1632,17 +1630,6 @@ namespace HRMS_Backend.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("CompanyForm", b =>
-                {
-                    b.HasOne("HRMS_Backend.Models.Employee", "UploadedBy")
-                        .WithMany()
-                        .HasForeignKey("UploadedByEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UploadedBy");
-                });
-
             modelBuilder.Entity("Complaint", b =>
                 {
                     b.HasOne("HRMS_Backend.Models.Department", "Department")
@@ -1667,6 +1654,17 @@ namespace HRMS_Backend.Migrations
                         .HasForeignKey("TargetDepartmentId");
 
                     b.Navigation("TargetDepartment");
+                });
+
+            modelBuilder.Entity("HRMS_Backend.Models.CompanyForm", b =>
+                {
+                    b.HasOne("HRMS_Backend.Models.Employee", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.DataUpdateRequest", b =>

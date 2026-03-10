@@ -51,6 +51,7 @@ namespace HRMS_Backend.Data
         public DbSet<TaskAssignment> TaskAssignments { get; set; }
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<ManagerDelegation> ManagerDelegations { get; set; }
+        public DbSet<CompanyForm> CompanyForms { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -275,7 +276,8 @@ namespace HRMS_Backend.Data
                 new Permission { Id = 15, PermissionName = "ManageMaintenance" }, // لتقنية المعلومات
 new Permission { Id = 16, PermissionName = "ManageSalaryCertificates" }, // للمالية
 new Permission { Id = 17, PermissionName = "ManageExitPermits" }, // للـ HR
-new Permission { Id = 18, PermissionName = "ManageDataUpdates" } // للـ HR
+new Permission { Id = 18, PermissionName = "ManageDataUpdates" } ,// للـ HR
+new Permission { Id = 19, PermissionName = "ManageForms" } // لإدارة النماذج والقوالب
 
             );
 
@@ -304,7 +306,8 @@ new RolePermission { RoleId = 1, PermissionId = 18 }, // ManageDataUpdates
 new RolePermission { RoleId = 1, PermissionId = 14 },
 // ================= SubDepartmentManager =================
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
-new RolePermission { RoleId = 4, PermissionId = 10 }, // ViewDepartmentEmployees
+new RolePermission { RoleId = 4, PermissionId = 10 },
+ new RolePermission { RoleId = 1, PermissionId = 19 },// ViewDepartmentEmployees
 
 
 
