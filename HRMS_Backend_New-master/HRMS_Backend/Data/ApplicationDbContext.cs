@@ -277,7 +277,10 @@ namespace HRMS_Backend.Data
 new Permission { Id = 16, PermissionName = "ManageSalaryCertificates" }, // للمالية
 new Permission { Id = 17, PermissionName = "ManageExitPermits" }, // للـ HR
 new Permission { Id = 18, PermissionName = "ManageDataUpdates" } ,// للـ HR
-new Permission { Id = 19, PermissionName = "ManageForms" } // لإدارة النماذج والقوالب
+new Permission { Id = 19, PermissionName = "ManageForms" } ,// لإدارة النماذج والقوالب
+new Permission { Id = 20, PermissionName = "ViewReports" },
+new Permission { Id = 21, PermissionName = "AddEmployeeEducation" },
+new Permission { Id = 22, PermissionName = "EditEmployeeEducation" }
 
             );
 
@@ -304,10 +307,13 @@ new RolePermission { RoleId = 1, PermissionId = 16 }, // ManageSalaryCertificate
 new RolePermission { RoleId = 1, PermissionId = 17 }, // ManageExitPermits
 new RolePermission { RoleId = 1, PermissionId = 18 }, // ManageDataUpdates
 new RolePermission { RoleId = 1, PermissionId = 14 },
+new RolePermission { RoleId = 1, PermissionId = 20 },
+new RolePermission { RoleId = 1, PermissionId = 21 },
+new RolePermission { RoleId = 1, PermissionId = 22 },
 // ================= SubDepartmentManager =================
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
 new RolePermission { RoleId = 4, PermissionId = 10 },
- new RolePermission { RoleId = 1, PermissionId = 19 },// ViewDepartmentEmployees
+ new RolePermission { RoleId = 4, PermissionId = 19 },// ViewDepartmentEmployees
 
 
 

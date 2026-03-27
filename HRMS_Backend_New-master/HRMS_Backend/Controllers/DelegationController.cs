@@ -34,8 +34,9 @@ namespace HRMS_Backend.Controllers
             int finalEntityId = 0;
             string finalEntityTypeStr = "";
             int originalManagerId = currentEmployeeId;
+            string targetName = ""; // سنخزن هنا اسم القسم أو الإدارة للإشعار
 
-            // أ) حالة التكليف من أعلى لأسفل (حددنا النوع والـ ID)
+            // أ) حالة التكليف من أعلى لأسفل
             if (dto.TargetEntityType.HasValue && dto.TargetEntityId.HasValue)
             {
                 if (dto.TargetEntityType == EntityType.Section)
@@ -46,7 +47,6 @@ namespace HRMS_Backend.Controllers
 
                     if (targetSection == null) return NotFound("القسم المختار غير موجود.");
 
-                    // التحقق: هل أنت مدير القسم أو مدير الإدارة التابع لها القسم؟
                     bool isAuthorized = targetSection.ManagerEmployeeId == currentEmployeeId ||
                                        (targetSection.SubDepartment != null && targetSection.SubDepartment.ManagerEmployeeId == currentEmployeeId);
 
@@ -55,6 +55,7 @@ namespace HRMS_Backend.Controllers
                     finalEntityId = targetSection.Id;
                     finalEntityTypeStr = EntityType.Section.ToString();
                     originalManagerId = targetSection.ManagerEmployeeId ?? currentEmployeeId;
+                    targetName = targetSection.Name; // اسم القسم
                 }
                 else if (dto.TargetEntityType == EntityType.SubDepartment)
                 {
@@ -63,16 +64,16 @@ namespace HRMS_Backend.Controllers
 
                     if (targetSubDept == null) return NotFound("الإدارة الفرعية غير موجودة.");
 
-                    // التحقق: فقط مدير الإدارة نفسه (أو مدير عام لو عندكم)
                     if (targetSubDept.ManagerEmployeeId != currentEmployeeId)
                         return Unauthorized("لا تملك صلاحية التكليف على هذه الإدارة.");
 
                     finalEntityId = targetSubDept.Id;
                     finalEntityTypeStr = EntityType.SubDepartment.ToString();
                     originalManagerId = targetSubDept.ManagerEmployeeId ?? currentEmployeeId;
+                    targetName = targetSubDept.Name; // اسم الإدارة
                 }
             }
-            // ب) حالة التكليف الذاتي (السيستم يكتشف مكانك بروحه)
+            // ب) حالة التكليف الذاتي
             else
             {
                 var subDept = await _context.SubDepartments.FirstOrDefaultAsync(sd => sd.ManagerEmployeeId == currentEmployeeId);
@@ -82,16 +83,18 @@ namespace HRMS_Backend.Controllers
                 {
                     finalEntityId = subDept.Id;
                     finalEntityTypeStr = EntityType.SubDepartment.ToString();
+                    targetName = subDept.Name;
                 }
                 else if (section != null)
                 {
                     finalEntityId = section.Id;
                     finalEntityTypeStr = EntityType.Section.ToString();
+                    targetName = section.Name;
                 }
                 else return BadRequest("أنت لست مسجلاً كمدير حالي لأي كيان لعمل تكليف ذاتي.");
             }
 
-            // ج) إيقاف أي تكليفات نشطة سابقة لنفس القسم/الإدارة
+            // ج) إيقاف أي تكليفات نشطة سابقة
             var activeDelegations = await _context.ManagerDelegations
                 .Where(d => d.EntityId == finalEntityId && d.EntityType == finalEntityTypeStr && d.IsActive)
                 .ToListAsync();
@@ -117,11 +120,28 @@ namespace HRMS_Backend.Controllers
             };
 
             _context.ManagerDelegations.Add(delegation);
+
+            // هـ) إرسال الإشعار (الجزء الجديد)
+            var originalManagerName = await _context.Employees
+                .Where(e => e.Id == originalManagerId)
+                .Select(e => e.FullName)
+                .FirstOrDefaultAsync() ?? "المدير الحالي";
+
+            var notification = new Notification
+            {
+                UserId = dto.ActingManagerId,
+                Title = "تكليف بمهام إدارية",
+                Message = $"تم تكليفك رسمياً بمهام مدير ({targetName}) بدلاً من السيد/ة ({originalManagerName})، وذلك اعتباراً من اليوم وحتى تاريخ {dto.EndDate:yyyy-MM-dd}. لديك الآن كافة الصلاحيات الإدارية المقررة لهذه الفترة.",
+                CreatedAt = DateTime.Now,
+                IsRead = false
+            };
+
+            _context.Notifications.Add(notification);
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"تم التكليف بنجاح على كيان من نوع ({finalEntityTypeStr})." });
+            return Ok(new { message = $"تم التكليف بنجاح على ({targetName}) وإرسال إشعار للموظف المكلف." });
         }
-
         // ========================================================
         // 2. جلب الموظفين المتاحين للتكليف
         // ========================================================
@@ -146,14 +166,30 @@ namespace HRMS_Backend.Controllers
         [HttpPost("RevokeDelegation/{id}")]
         public async Task<IActionResult> Revoke(int id)
         {
-            var delegation = await _context.ManagerDelegations.FindAsync(id);
+            var delegation = await _context.ManagerDelegations
+                .Include(d => d.OriginalManager) // جلب بيانات المدير لإضافة اسمه في الإشعار
+                .FirstOrDefaultAsync(d => d.Id == id);
+
             if (delegation == null) return NotFound("التكليف غير موجود.");
 
             delegation.IsActive = false;
             delegation.EndDate = DateTime.Now;
 
+            // --- إضافة إشعار الإلغاء ---
+            var revokeNotification = new Notification
+            {
+                UserId = delegation.ActingManagerId, // الموظف اللي كان مكلف
+                Title = "انتهاء فترة التكليف",
+                Message = $"تم إنهاء تكليفك بمهام الإدارة من قبل السيد/ة ({delegation.OriginalManager?.FullName ?? "المدير"}). شكراً لجهودك خلال الفترة الماضية.",
+                CreatedAt = DateTime.Now,
+                IsRead = false
+            };
+
+            _context.Notifications.Add(revokeNotification);
+            // -----------------------
+
             await _context.SaveChangesAsync();
-            return Ok(new { message = "تم إلغاء التكليف بنجاح." });
+            return Ok(new { message = "تم إلغاء التكليف بنجاح وإرسال إشعار للموظف." });
         }
     }
 }
