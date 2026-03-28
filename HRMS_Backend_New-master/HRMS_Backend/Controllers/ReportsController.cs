@@ -1,8 +1,9 @@
 ﻿using HRMS_Backend.Attributes;
 using HRMS_Backend.Data;
 using HRMS_Backend.DTOs;
-using Microsoft.AspNetCore.Mvc;
 using HRMS_Backend.Enums;
+using HRMS_Backend.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HRMS_Backend.Controllers
@@ -18,12 +19,78 @@ namespace HRMS_Backend.Controllers
             _context = context;
         }
 
-        //================= Employees By SubDepartment =================
+        // ================= Helper: Current User =================
+        private int GetCurrentUserId()
+        {
+            return int.Parse(User.FindFirst("UserId")!.Value);
+        }
+
+        private Employee GetCurrentEmployee()
+        {
+            var userId = GetCurrentUserId();
+
+            return _context.Users
+                .Include(u => u.Employee)
+                    .ThenInclude(e => e.AdministrativeData)
+                        .ThenInclude(a => a.SubDepartment)
+                            .ThenInclude(sd => sd.Department)
+                .Include(u => u.Employee.AdministrativeData.Section)
+                .First(u => u.Id == userId)
+                .Employee!;
+        }
+
+        private string GetUserLevel(Employee emp)
+        {
+            if (emp.AdministrativeData.SectionId != null)
+                return "Section";
+
+            if (emp.AdministrativeData.SubDepartmentId != null)
+                return "SubDepartment";
+
+            return "Department";
+        }
+
+        private IQueryable<Employee> ApplyEmployeeFilter(Employee currentEmployee)
+        {
+            var level = GetUserLevel(currentEmployee);
+
+            var query = _context.Employees
+                .Include(e => e.AdministrativeData)
+                    .ThenInclude(a => a.SubDepartment)
+                        .ThenInclude(sd => sd.Department)
+                .Include(e => e.AdministrativeData.Section)
+                .AsQueryable();
+
+            if (level == "Section")
+            {
+                query = query.Where(e =>
+                    e.AdministrativeData.SectionId ==
+                    currentEmployee.AdministrativeData.SectionId);
+            }
+            else if (level == "SubDepartment")
+            {
+                query = query.Where(e =>
+                    e.AdministrativeData.SubDepartmentId ==
+                    currentEmployee.AdministrativeData.SubDepartmentId);
+            }
+            else
+            {
+                query = query.Where(e =>
+                    e.AdministrativeData.SubDepartment.DepartmentId ==
+                    currentEmployee.AdministrativeData.SubDepartment.DepartmentId);
+            }
+
+            return query;
+        }
+
+        // ================= Employees By SubDepartment =================
         [HttpGet("employees-by-subdepartment")]
         [HasPermission("ViewReports")]
         public IActionResult GetEmployeesBySubDepartment()
         {
-            var data = _context.Employees
+            var currentEmployee = GetCurrentEmployee();
+
+            var data = ApplyEmployeeFilter(currentEmployee)
                 .Where(e => e.AdministrativeData != null)
                 .GroupBy(e => e.AdministrativeData.SubDepartment.Name)
                 .Select(g => new EmployeesBySubDepartmentDto
@@ -37,56 +104,71 @@ namespace HRMS_Backend.Controllers
             return Ok(data);
         }
 
-        //================= Requests Report =================
+        // ================= Requests Report =================
         [HttpGet("requests-report")]
         [HasPermission("ViewReports")]
         public IActionResult GetRequestsReport()
         {
+            var currentEmployee = GetCurrentEmployee();
+
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
+            var today = DateTime.Now;
+
+            // ================= Load all request types into memory =================
             var leaveRequests = _context.LeaveRequests
                 .Include(r => r.Employee)
+                .Where(r => allowedEmployeeIds.Contains(r.EmployeeId))
+                .AsEnumerable()
                 .Select(r => new
                 {
                     Type = "إجازة",
                     Status = r.Status.ToString(),
                     EmployeeName = r.Employee!.FullName ?? "غير معروف"
-                })
-                .ToList();
+                });
 
             var maintenanceRequests = _context.MaintenanceRequests
                 .Include(r => r.Employee)
+                .Where(r => allowedEmployeeIds.Contains(r.EmployeeId))
+                .AsEnumerable()
                 .Select(r => new
                 {
                     Type = "صيانة جهاز",
                     Status = r.Status.ToString(),
                     EmployeeName = r.Employee!.FullName ?? "غير معروف"
-                })
-                .ToList();
+                });
 
             var salaryRequests = _context.SalaryCertificateRequests
                 .Include(r => r.Employee)
+                .Where(r => allowedEmployeeIds.Contains(r.EmployeeId))
+                .AsEnumerable()
                 .Select(r => new
                 {
                     Type = "شهادة مرتب",
                     Status = r.Status.ToString(),
                     EmployeeName = r.Employee!.FullName ?? "غير معروف"
-                })
-                .ToList();
+                });
 
             var dataUpdateRequests = _context.DataUpdateRequests
                 .Include(r => r.Employee)
+                .Where(r => allowedEmployeeIds.Contains(r.EmployeeId))
+                .AsEnumerable()
                 .Select(r => new
                 {
                     Type = "تعديل بيانات",
                     Status = r.Status.ToString(),
                     EmployeeName = r.Employee!.FullName ?? "غير معروف"
-                })
-                .ToList();
+                });
 
+            // ================= Merge all requests =================
             var allRequests = leaveRequests
                 .Concat(maintenanceRequests)
                 .Concat(salaryRequests)
                 .Concat(dataUpdateRequests);
 
+            // ================= Group and shape the final result =================
             var result = allRequests
                 .GroupBy(x => new { x.Type, x.Status })
                 .Select(g => new RequestsReportDto
@@ -101,30 +183,35 @@ namespace HRMS_Backend.Controllers
             return Ok(result);
         }
 
-        //================= Delegations Report =================
+        // ================= Delegations Report =================
         [HttpGet("delegations-report")]
         [HasPermission("ViewReports")]
         public IActionResult GetDelegationsReport()
         {
+            var currentEmployee = GetCurrentEmployee();
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
             var today = DateTime.Now;
 
             var data = _context.ManagerDelegations
                 .Include(d => d.ActingManager)
                 .Include(d => d.OriginalManager)
                 .Include(d => d.AssignedBy)
-                .ToList() // 🔥 مهم جداً
+                .ToList()
+                .Where(d =>
+                    allowedEmployeeIds.Contains(d.ActingManagerId) ||
+                    allowedEmployeeIds.Contains(d.OriginalManagerId))
                 .Select(d => new DelegationReportDto
                 {
                     ActingManager = d.ActingManager.FullName ?? "غير معروف",
                     OriginalManager = d.OriginalManager.FullName ?? "غير معروف",
                     AssignedBy = d.AssignedBy.FullName ?? "غير معروف",
-
                     EntityType = d.EntityType,
                     EntityName = GetEntityName(d.EntityType, d.EntityId),
-
                     StartDate = d.StartDate,
                     EndDate = d.EndDate,
-
                     Status = (d.IsActive && (d.EndDate == null || d.EndDate >= today))
                         ? "نشط"
                         : "منتهي"
@@ -134,14 +221,22 @@ namespace HRMS_Backend.Controllers
             return Ok(data);
         }
 
-        //================= Employees By Grade =================
+        // ================= Employees By Grade =================
         [HttpGet("employees-by-grade/{gradeId}")]
         public async Task<IActionResult> GetEmployeesByGrade(int gradeId)
         {
+            var currentEmployee = GetCurrentEmployee();
+
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
             var data = await _context.EmployeeFinancialDatas
                 .Include(e => e.Employee)
                 .Include(e => e.JobGrade)
-                .Where(e => e.JobGradeId == gradeId)
+                .Where(e =>
+                    e.JobGradeId == gradeId &&
+                    allowedEmployeeIds.Contains(e.EmployeeId))
                 .ToListAsync();
 
             if (!data.Any())
@@ -166,7 +261,7 @@ namespace HRMS_Backend.Controllers
             });
         }
 
-        //================= Employees On Leave =================
+        // ================= Employees On Leave =================
         [HttpGet("employees-on-leave")]
         [HasPermission("ViewReports")]
         public IActionResult GetEmployeesOnLeave(
@@ -176,16 +271,20 @@ namespace HRMS_Backend.Controllers
             if (toDate < fromDate)
                 return BadRequest("تاريخ النهاية لازم يكون بعد البداية");
 
-            var from = fromDate.Date;
-            var to = toDate.Date;
+            var currentEmployee = GetCurrentEmployee();
+
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
 
             var data = _context.LeaveRequests
                 .Include(l => l.Employee)
                 .Include(l => l.LeaveType)
                 .Where(l =>
+                    allowedEmployeeIds.Contains(l.EmployeeId) &&
                     l.Status == LeaveStatus.موافقة_نهائية &&
-                    l.FromDate.Date <= to &&
-                    l.ToDate.Date >= from
+                    l.FromDate.Date <= toDate &&
+                    l.ToDate.Date >= fromDate
                 )
                 .Select(l => new EmployeesOnLeaveDto
                 {
@@ -201,7 +300,7 @@ namespace HRMS_Backend.Controllers
             return Ok(data);
         }
 
-        //================= Helper =================
+        // ================= Helper =================
         private string GetEntityName(string entityType, int entityId)
         {
             return entityType switch

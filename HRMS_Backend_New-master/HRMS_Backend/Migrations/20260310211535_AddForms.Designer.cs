@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260310211535_AddForms")]
+    partial class AddForms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -433,18 +436,21 @@ namespace HRMS_Backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Degree")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Institution")
+                    b.Property<int>("GraduationYear")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Major")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
+                    b.Property<string>("University")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -1105,21 +1111,6 @@ namespace HRMS_Backend.Migrations
                         {
                             Id = 19,
                             PermissionName = "ManageForms"
-                        },
-                        new
-                        {
-                            Id = 20,
-                            PermissionName = "ViewReports"
-                        },
-                        new
-                        {
-                            Id = 21,
-                            PermissionName = "AddEmployeeEducation"
-                        },
-                        new
-                        {
-                            Id = 22,
-                            PermissionName = "EditEmployeeEducation"
                         });
                 });
 
@@ -1230,21 +1221,6 @@ namespace HRMS_Backend.Migrations
                         },
                         new
                         {
-                            RoleId = 1,
-                            PermissionId = 20
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 21
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 22
-                        },
-                        new
-                        {
                             RoleId = 4,
                             PermissionId = 5
                         },
@@ -1255,13 +1231,8 @@ namespace HRMS_Backend.Migrations
                         },
                         new
                         {
-                            RoleId = 4,
+                            RoleId = 1,
                             PermissionId = 19
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 20
                         },
                         new
                         {
@@ -1300,11 +1271,6 @@ namespace HRMS_Backend.Migrations
                         },
                         new
                         {
-                            RoleId = 5,
-                            PermissionId = 20
-                        },
-                        new
-                        {
                             RoleId = 3,
                             PermissionId = 5
                         },
@@ -1312,11 +1278,6 @@ namespace HRMS_Backend.Migrations
                         {
                             RoleId = 3,
                             PermissionId = 10
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 20
                         },
                         new
                         {

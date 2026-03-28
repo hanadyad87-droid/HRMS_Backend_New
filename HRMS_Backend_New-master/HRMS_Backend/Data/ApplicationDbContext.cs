@@ -314,7 +314,7 @@ new RolePermission { RoleId = 1, PermissionId = 22 },
 new RolePermission { RoleId = 4, PermissionId = 5 },  // ApproveLeave
 new RolePermission { RoleId = 4, PermissionId = 10 },
  new RolePermission { RoleId = 4, PermissionId = 19 },// ViewDepartmentEmployees
-
+ new RolePermission { RoleId = 4, PermissionId = 20 },
 
 
      // ================= Employee (افتراضي) =================
@@ -327,11 +327,11 @@ new RolePermission { RoleId = 4, PermissionId = 10 },
      new RolePermission { RoleId = 5, PermissionId = 5 },  // ApproveLeave
      new RolePermission { RoleId = 5, PermissionId = 10 },
      new RolePermission { RoleId = 5, PermissionId = 17 },// ViewDepartmentEmployees
-
+     new RolePermission { RoleId = 5, PermissionId = 20 },
      // ================= DepartmentManager =================
      new RolePermission { RoleId = 3, PermissionId = 5 },
      new RolePermission { RoleId = 3, PermissionId = 10 },
-
+      new RolePermission { RoleId = 3, PermissionId = 20 },
      // ================= HR =================
      new RolePermission { RoleId = 2, PermissionId = 1 }, // AddEmployee
      new RolePermission { RoleId = 2, PermissionId = 2 }, // EditEmployee

@@ -14,5 +14,6 @@
         public string? ManagerNote { get; set; }
         public string? Notes { get; set; }
         public string? AttachmentPath { get; set; }
+        
     }
 }

@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328180816_AddReports")]
+    partial class AddReports
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1260,11 +1263,6 @@ namespace HRMS_Backend.Migrations
                         },
                         new
                         {
-                            RoleId = 4,
-                            PermissionId = 20
-                        },
-                        new
-                        {
                             RoleId = 6,
                             PermissionId = 4
                         },
@@ -1300,11 +1298,6 @@ namespace HRMS_Backend.Migrations
                         },
                         new
                         {
-                            RoleId = 5,
-                            PermissionId = 20
-                        },
-                        new
-                        {
                             RoleId = 3,
                             PermissionId = 5
                         },
@@ -1312,11 +1305,6 @@ namespace HRMS_Backend.Migrations
                         {
                             RoleId = 3,
                             PermissionId = 10
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 20
                         },
                         new
                         {
