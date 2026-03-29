@@ -10,5 +10,7 @@
 
         // هل مسموح له (true) أم ممنوع (false)
         public bool IsAllowed { get; set; }
+        public bool IsTemporary { get; set; } = false;  // صلاحية مؤقتة
+        public int? DelegationId { get; set; }          // ربطها بالتكليف
     }
 }
