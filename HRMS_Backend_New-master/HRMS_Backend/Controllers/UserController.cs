@@ -1,13 +1,14 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using HRMS_Backend.Data;
+﻿using HRMS_Backend.Data;
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace HRMS_Backend.Controllers
 {
@@ -16,10 +17,12 @@ namespace HRMS_Backend.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly AuditService _auditService;
 
-        public UserController(ApplicationDbContext context)
+        public UserController(ApplicationDbContext context, AuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         // -------------------------
@@ -69,6 +72,7 @@ namespace HRMS_Backend.Controllers
 
             // توليد التوكن (هنا تتم عملية حقن صلاحيات المدير المكلف)
             var token = GenerateJwtToken(user, employee);
+            _auditService.Log(user.Id, "Login", "User", $"User {user.Username} logged in");
 
             return Ok(new
             {

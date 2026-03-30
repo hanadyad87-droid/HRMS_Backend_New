@@ -54,6 +54,7 @@ namespace HRMS_Backend.Data
         public DbSet<ManagerDelegation> ManagerDelegations { get; set; }
         public DbSet<CompanyForm> CompanyForms { get; set; }
         public DbSet<Qualification> Qualifications { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

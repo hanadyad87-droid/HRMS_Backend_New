@@ -249,17 +249,17 @@ namespace HRMS_Backend.Controllers
                 .Select(e => e.Id)
                 .ToList();
             Console.WriteLine(string.Join(",", allowedEmployeeIds));
-            var data = _context.TaskAssignments
-         .Include(t => t.Employee)
-         .Where(t => t.Employee != null)
-         .ToList()
-         .GroupBy(t => t.Employee.FullName)
-         .Select(g => new
-         {
-             Employee = g.Key,
-             Count = g.Count(),
-         })
-         .ToList();
+       var data = _context.TaskAssignments
+    .Include(t => t.Employee)
+    .Where(t => t.Employee != null)
+    .ToList()
+    .GroupBy(t => t.Employee.FullName)
+    .Select(g => new
+    {
+        Employee = g.Key,
+        Count = g.Count(),
+    })
+    .ToList();
 
             return Ok(data);
         }

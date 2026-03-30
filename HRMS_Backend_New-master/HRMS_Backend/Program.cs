@@ -8,6 +8,8 @@ using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditService>();
 
 // 1. إعداد قاعدة البيانات
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
