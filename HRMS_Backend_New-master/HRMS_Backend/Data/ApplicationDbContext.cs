@@ -1,6 +1,6 @@
 ﻿using HRMS_Backend.Enums;
 using HRMS_Backend.Models;
-using HRMS_Backend.Models.HRMS_Backend.Models;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace HRMS_Backend.Data
@@ -54,6 +54,7 @@ namespace HRMS_Backend.Data
         public DbSet<ManagerDelegation> ManagerDelegations { get; set; }
         public DbSet<CompanyForm> CompanyForms { get; set; }
         public DbSet<Qualification> Qualifications { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -115,10 +116,7 @@ namespace HRMS_Backend.Data
                 .HasForeignKey(e => e.EmployeeId);
        
 
-            modelBuilder.Entity<EmployeeEducation>()
-                .HasOne(e => e.Qualification)
-                .WithMany()
-                .HasForeignKey(e => e.QualificationId);
+           
 
             // EmployeeAdministrativeData → Employee (One-to-One)
             modelBuilder.Entity<EmployeeAdministrativeData>()
@@ -291,24 +289,8 @@ new Permission { Id = 21, PermissionName = "AddEmployeeEducation" },
 new Permission { Id = 22, PermissionName = "EditEmployeeEducation" }
 
             );
-            modelBuilder.Entity<Qualification>().HasData(
+           
 
-    new Qualification { Id = 1, Name = "إعدادية", Level = "Basic" },
-    new Qualification { Id = 2, Name = "ثانوية عامة", Level = "Secondary" },
-
-    new Qualification { Id = 3, Name = "دبلوم متوسط", Level = "Diploma" },
-    new Qualification { Id = 4, Name = "دبلوم عالي", Level = "Higher Diploma" },
-
-    new Qualification { Id = 5, Name = "بكالوريوس", Level = "Bachelor" },
-    new Qualification { Id = 6, Name = "ليسانس", Level = "Bachelor" },
-
-    new Qualification { Id = 7, Name = "ماجستير", Level = "Master" },
-    new Qualification { Id = 8, Name = "دكتوراه", Level = "PhD" },
-
-    new Qualification { Id = 9, Name = "زمالة", Level = "Fellowship" },
-    new Qualification { Id = 10, Name = "شهادة مهنية", Level = "Professional" }
-
-);
 
 
             // Permissions

@@ -182,7 +182,92 @@ namespace HRMS_Backend.Controllers
 
             return Ok(result);
         }
+        // ================= Employees By Qualification =================
+        [HttpGet("employees-by-qualification")]
+        [HasPermission("ViewReports")]
+        public IActionResult GetEmployeesByQualification()
+        {
+            var currentEmployee = GetCurrentEmployee();
 
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
+            var data = _context.EmployeeEducations
+                .Include(e => e.Employee)
+                .Include(e => e.Qualification)
+                .Where(e => allowedEmployeeIds.Contains(e.EmployeeId))
+                .ToList()
+                .GroupBy(e => e.Qualification.Name)
+                .Select(g => new EmployeesByQualificationDto
+                {
+                    QualificationName = g.Key,
+                    Count = g.Count(),
+                    Employees = g.Select(e => e.Employee.FullName ?? "غير معروف")
+                                 .Distinct()
+                                 .ToList()
+                })
+                .ToList();
+
+            return Ok(data);
+        }
+        // ================= Tasks Report =================
+        [HttpGet("tasks-report")]
+        [HasPermission("ViewReports")]
+        public IActionResult GetTasksReport()
+        {
+            var currentEmployee = GetCurrentEmployee();
+
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
+            var data = _context.TaskAssignments
+                .Include(t => t.Employee)
+                .Where(t => allowedEmployeeIds.Contains(t.EmployeeId))
+                .ToList()
+                .GroupBy(t => t.Status)
+                .Select(g => new TasksReportDto
+                {
+                    Status = g.Key.ToString(),
+                    Count = g.Count(),
+                    Employees = g.Select(t => t.Employee.FullName ?? "غير معروف")
+                                 .Distinct()
+                                 .ToList()
+                })
+                .ToList();
+
+            return Ok(data);
+        }
+        [HttpGet("tasks-by-employee")]
+        [HasPermission("ViewReports")]
+        public IActionResult GetTasksByEmployee()
+        {
+            var currentEmployee = GetCurrentEmployee();
+
+            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+                .Select(e => e.Id)
+                .ToList();
+
+            var data = _context.TaskAssignments
+                .Include(t => t.Employee)
+                .Where(t => allowedEmployeeIds.Contains(t.EmployeeId))
+                .ToList()
+                .GroupBy(t => t.Employee.FullName)
+                .Select(g => new
+                {
+                    Employee = g.Key,
+                    Count = g.Count(),
+                    Tasks = g.Select(t => new
+                    {
+                        t.Title,
+                        Status = t.Status.ToString()
+                    }).ToList()
+                })
+                .ToList();
+
+            return Ok(data);
+        }
         // ================= Delegations Report =================
         [HttpGet("delegations-report")]
         [HasPermission("ViewReports")]

@@ -18,7 +18,32 @@ namespace HRMS_Backend.Controllers
             _context = context;
         }
 
-        // 🔹 إضافة مؤهل علمي
+        // 🔹 Helper
+        private int? GetUserId()
+        {
+            var claim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(claim))
+                return null;
+
+            return int.Parse(claim);
+        }
+
+        // 🔹 جلب قائمة المؤهلات (Dropdown)
+        [HttpGet("qualifications")]
+        public IActionResult GetQualifications()
+        {
+            var data = _context.Qualifications
+                .Select(q => new
+                {
+                    q.Id,
+                    q.Name
+                })
+                .ToList();
+
+            return Ok(data);
+        }
+
+        // 🔹 إضافة مؤهل
         [Authorize]
         [HasPermission("AddEmployeeEducation")]
         [HttpPost]
@@ -30,10 +55,16 @@ namespace HRMS_Backend.Controllers
             if (employee == null)
                 return NotFound("الموظف غير موجود");
 
+            var qualification = _context.Qualifications
+                .FirstOrDefault(q => q.Id == dto.QualificationId);
+
+            if (qualification == null)
+                return BadRequest("المؤهل غير صحيح");
+
             var education = new EmployeeEducation
             {
                 EmployeeId = employee.Id,
-                Name = dto.Name,
+                QualificationId = dto.QualificationId,
                 Type = dto.Type,
                 Institution = dto.Institution
             };
@@ -49,7 +80,10 @@ namespace HRMS_Backend.Controllers
         [HttpGet("my")]
         public IActionResult MyEducations()
         {
-            var userId = int.Parse(User.FindFirst("UserId").Value);
+            var userId = GetUserId();
+
+            if (userId == null)
+                return Unauthorized();
 
             var employee = _context.Employees
                 .FirstOrDefault(e => e.UserId == userId);
@@ -59,12 +93,20 @@ namespace HRMS_Backend.Controllers
 
             var data = _context.EmployeeEducations
                 .Where(e => e.EmployeeId == employee.Id)
+                .Select(e => new
+                {
+                    e.Id,
+                    Qualification = e.Qualification.Name, // 👈 اسم المؤهل
+                    e.Type,
+                    e.Institution,
+                    e.CreatedAt
+                })
                 .ToList();
 
             return Ok(data);
         }
 
-        // 🔹 تعديل مؤهل علمي
+        // 🔹 تعديل مؤهل
         [Authorize]
         [HasPermission("EditEmployeeEducation")]
         [HttpPut("{id}")]
@@ -76,13 +118,13 @@ namespace HRMS_Backend.Controllers
             if (education == null)
                 return NotFound("المؤهل غير موجود");
 
-            education.Name = dto.Name;
+            education.QualificationId = dto.QualificationId;
             education.Type = dto.Type;
             education.Institution = dto.Institution;
 
             _context.SaveChanges();
 
-            return Ok("تم تعديل المؤهل العلمي بنجاح");
+            return Ok("تم التعديل بنجاح");
         }
     }
 }
