@@ -248,23 +248,18 @@ namespace HRMS_Backend.Controllers
             var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
                 .ToList();
-
+            Console.WriteLine(string.Join(",", allowedEmployeeIds));
             var data = _context.TaskAssignments
-                .Include(t => t.Employee)
-                .Where(t => allowedEmployeeIds.Contains(t.EmployeeId))
-                .ToList()
-                .GroupBy(t => t.Employee.FullName)
-                .Select(g => new
-                {
-                    Employee = g.Key,
-                    Count = g.Count(),
-                    Tasks = g.Select(t => new
-                    {
-                        t.Title,
-                        Status = t.Status.ToString()
-                    }).ToList()
-                })
-                .ToList();
+         .Include(t => t.Employee)
+         .Where(t => t.Employee != null)
+         .ToList()
+         .GroupBy(t => t.Employee.FullName)
+         .Select(g => new
+         {
+             Employee = g.Key,
+             Count = g.Count(),
+         })
+         .ToList();
 
             return Ok(data);
         }
