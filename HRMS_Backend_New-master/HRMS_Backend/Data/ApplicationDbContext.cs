@@ -253,6 +253,31 @@ namespace HRMS_Backend.Data
                 new JobTitle { Id = 5, Name = "مأمور ضبظ قضائي" },
                 new JobTitle { Id = 6, Name = "عضو تحقيق" }
             );
+            // ================= AuditLog =================
+
+            modelBuilder.Entity<AuditLog>()
+                .HasIndex(x => x.CreatedAt);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasIndex(x => new { x.EntityName, x.EntityId });
+
+            modelBuilder.Entity<AuditLog>()
+                .HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(a => a.Action)
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(a => a.EntityName)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(a => a.IPAddress)
+                .HasMaxLength(50);
 
             // Roles
             modelBuilder.Entity<Role>().HasData(

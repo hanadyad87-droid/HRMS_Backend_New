@@ -187,7 +187,31 @@ namespace HRMS_Backend.Controllers
 
             return Ok(employees);
         }
+        [HttpGet("ActiveDelegations")]
+        public async Task<IActionResult> GetActiveDelegations()
+        {
+            var activeDelegations = await _context.ManagerDelegations
+     .Include(d => d.ActingManager)
+     .Include(d => d.OriginalManager)
+     .Where(d => d.IsActive)
+     .OrderByDescending(d => d.StartDate)
+     .Select(d => new
+     {
+         d.Id,
+         ActingManagerName = d.ActingManager.FullName,
+         OriginalManagerName = d.OriginalManager.FullName,
+         d.EntityType,
+         d.EntityId,
+         EntityName = d.EntityType == EntityType.Section.ToString()
+             ? _context.Sections.FirstOrDefault(s => s.Id == d.EntityId).Name
+             : _context.SubDepartments.FirstOrDefault(sd => sd.Id == d.EntityId).Name,
+         d.StartDate,
+         d.EndDate
+     })
+     .ToListAsync();
 
+            return Ok(activeDelegations);
+        }
         // ========================================================
         // 3. إلغاء تكليف نشط وحذف صلاحيات مؤقتة
         // ========================================================
