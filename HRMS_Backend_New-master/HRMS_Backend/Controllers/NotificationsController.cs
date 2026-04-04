@@ -35,6 +35,29 @@ namespace HRMS_Backend.Controllers
 
             return Ok(notifications);
         }
+        // 🔥 تعليم كل الإشعارات كمقروءة
+        [HttpPut("read-all")]
+        public IActionResult MarkAllAsRead()
+        {
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (employeeIdClaim == null)
+                return Unauthorized("EmployeeId missing in token.");
+
+            var employeeId = int.Parse(employeeIdClaim);
+
+            var notifications = _context.Notifications
+                .Where(n => n.UserId == employeeId && !n.IsRead)
+                .ToList();
+
+            foreach (var notification in notifications)
+            {
+                notification.IsRead = true;
+            }
+
+            _context.SaveChanges();
+
+            return Ok("All notifications marked as read.");
+        }
 
         // 🔹 تعليم إشعار كمقروء
         [HttpPut("{id}/read")]
