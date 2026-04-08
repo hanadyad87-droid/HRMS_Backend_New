@@ -3,7 +3,7 @@
     public class subDepartment
     {
         public int Id { get; set; }
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string Name { get; set; }
 
         // العلاقة مع الإدارة الرئيسية

@@ -3,6 +3,7 @@ using HRMS_Backend.DTOs;
 using HRMS_Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace HRMS_Backend.Controllers
 {
@@ -24,7 +25,8 @@ namespace HRMS_Backend.Controllers
         {
             return Ok(_context.Departments
                 .Include(d => d.ManagerEmployee).Include(d => d.PreviousManager)
-                .Select(d => new {
+                .Select(d => new
+                {
                     d.Id,
                     d.Name,
                     ManagerId = d.ManagerEmployeeId,
@@ -38,7 +40,8 @@ namespace HRMS_Backend.Controllers
         {
             return Ok(_context.SubDepartments
                 .Include(s => s.Department).Include(s => s.ManagerEmployee).Include(s => s.PreviousManager)
-                .Select(s => new {
+                .Select(s => new
+                {
                     s.Id,
                     s.Name,
                     ParentDepartment = s.Department != null ? s.Department.Name : "لا يوجد",
@@ -52,7 +55,8 @@ namespace HRMS_Backend.Controllers
         {
             return Ok(_context.Sections
                 .Include(s => s.SubDepartment).Include(s => s.ManagerEmployee).Include(s => s.PreviousManager)
-                .Select(s => new {
+                .Select(s => new
+                {
                     s.Id,
                     s.Name,
                     ParentSubDept = s.SubDepartment != null ? s.SubDepartment.Name : "لا يوجد",
@@ -140,6 +144,68 @@ namespace HRMS_Backend.Controllers
                 currentManager = emp.FullName,
                 previousManager = prevManagerName
             });
+        }
+        [HttpGet("AllEntitiesByDate")]
+        public IActionResult GetAllEntitiesByDate()
+        {
+            // 1️⃣ جميع الإدارات
+            var departments = _context.Departments
+                .Include(d => d.ManagerEmployee)
+                .Include(d => d.PreviousManager)
+                .Select(d => new OrganizationEntityDto
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Type = "department",
+                    CreatedAt = d.CreatedAt,
+                    Parent = null,
+                    ManagerName = d.ManagerEmployee != null ? d.ManagerEmployee.FullName : "لا يوجد مدير حالي",
+                    PreviousManagerName = d.PreviousManager != null ? d.PreviousManager.FullName : "لا يوجد مدير سابق"
+                })
+                .ToList();
+
+            // 2️⃣ جميع الإدارات الفرعية
+            var subDepartments = _context.SubDepartments
+                .Include(s => s.Department)
+                .Include(s => s.ManagerEmployee)
+                .Include(s => s.PreviousManager)
+                .Select(s => new OrganizationEntityDto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Type = "subdepartment",
+                    CreatedAt = s.CreatedAt,
+                    Parent = s.Department != null ? s.Department.Name : "لا يوجد",
+                    ManagerName = s.ManagerEmployee != null ? s.ManagerEmployee.FullName : "لا يوجد",
+                    PreviousManagerName = s.PreviousManager != null ? s.PreviousManager.FullName : "لا يوجد"
+                })
+                .ToList();
+
+            // 3️⃣ جميع الأقسام
+            var sections = _context.Sections
+                .Include(s => s.SubDepartment)
+                .Include(s => s.ManagerEmployee)
+                .Include(s => s.PreviousManager)
+                .Select(s => new OrganizationEntityDto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Type = "section",
+                    CreatedAt = s.CreatedAt,
+                    Parent = s.SubDepartment != null ? s.SubDepartment.Name : "لا يوجد",
+                    ManagerName = s.ManagerEmployee != null ? s.ManagerEmployee.FullName : "لا يوجد",
+                    PreviousManagerName = s.PreviousManager != null ? s.PreviousManager.FullName : "لا يوجد"
+                })
+                .ToList();
+
+            // 4️⃣ دمجهم وترتيبهم حسب CreatedAt تنازلياً
+            var allEntities = departments
+                .Concat(subDepartments)
+                .Concat(sections)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToList();
+
+            return Ok(allEntities);
         }
     }
 }

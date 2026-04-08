@@ -28,7 +28,7 @@ namespace HRMS_Backend.Controllers
             return int.Parse(claim);
         }
 
-        // 🔹 جلب قائمة المؤهلات (Dropdown)
+        // 🔹 جلب قائمة المؤهلات
         [HttpGet("qualifications")]
         public IActionResult GetQualifications()
         {
@@ -47,7 +47,7 @@ namespace HRMS_Backend.Controllers
         [Authorize]
         [HasPermission("AddEmployeeEducation")]
         [HttpPost]
-        public IActionResult AddEducation(CreateEmployeeEducationDto dto)
+        public IActionResult AddEducation([FromForm] CreateEmployeeEducationDto dto)
         {
             var employee = _context.Employees
                 .FirstOrDefault(e => e.Id == dto.EmployeeId);
@@ -61,56 +61,56 @@ namespace HRMS_Backend.Controllers
             if (qualification == null)
                 return BadRequest("المؤهل غير صحيح");
 
+            string? filePath = null;
+
+            if (dto.File != null)
+            {
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+                var extension = Path.GetExtension(dto.File.FileName).ToLower();
+
+                if (!allowedExtensions.Contains(extension))
+                    return BadRequest("مسموح فقط PDF أو صور");
+
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads");
+
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var fileName = Guid.NewGuid().ToString() + extension;
+                var fullPath = Path.Combine(uploadsFolder, fileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    dto.File.CopyTo(stream);
+                }
+
+                filePath = "/uploads/" + fileName;
+            }
+
             var education = new EmployeeEducation
             {
                 EmployeeId = employee.Id,
                 QualificationId = dto.QualificationId,
                 Type = dto.Type,
-                Institution = dto.Institution
+                Institution = dto.Institution,
+                FilePath = filePath
             };
 
             _context.EmployeeEducations.Add(education);
             _context.SaveChanges();
 
-            return Ok("تم إضافة المؤهل العلمي");
+            return Ok(new
+            {
+                message = "تم إضافة المؤهل العلمي",
+                file = filePath
+            });
         }
 
-        // 🔹 عرض مؤهلاتي
+        // 🔹 تعديل مؤهل (اختياري: تقدر تضيف تغيير ملف لو تحب)
         [Authorize]
-        [HttpGet("my")]
-        public IActionResult MyEducations()
-        {
-            var userId = GetUserId();
-
-            if (userId == null)
-                return Unauthorized();
-
-            var employee = _context.Employees
-                .FirstOrDefault(e => e.UserId == userId);
-
-            if (employee == null)
-                return BadRequest("الموظف غير موجود");
-
-            var data = _context.EmployeeEducations
-                .Where(e => e.EmployeeId == employee.Id)
-                .Select(e => new
-                {
-                    e.Id,
-                    Qualification = e.Qualification.Name, // 👈 اسم المؤهل
-                    e.Type,
-                    e.Institution,
-                    e.CreatedAt
-                })
-                .ToList();
-
-            return Ok(data);
-        }
-
-        // 🔹 تعديل مؤهل
-        [Authorize]
-        [HasPermission("EditEmployeeEducation")]
+        [HasPermission("AddEmployeeEducation")]
         [HttpPut("{id}")]
-        public IActionResult EditEducation(int id, CreateEmployeeEducationDto dto)
+        public IActionResult EditEducation(int id, [FromForm] CreateEmployeeEducationDto dto)
         {
             var education = _context.EmployeeEducations
                 .FirstOrDefault(e => e.Id == id);
@@ -122,9 +122,87 @@ namespace HRMS_Backend.Controllers
             education.Type = dto.Type;
             education.Institution = dto.Institution;
 
+            // 🔹 لو فيه ملف جديد
+            if (dto.File != null)
+            {
+                // حذف القديم
+                if (!string.IsNullOrEmpty(education.FilePath))
+                {
+                    var oldPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", education.FilePath.TrimStart('/'));
+                    if (System.IO.File.Exists(oldPath))
+                        System.IO.File.Delete(oldPath);
+                }
+
+                var extension = Path.GetExtension(dto.File.FileName).ToLower();
+                var fileName = Guid.NewGuid().ToString() + extension;
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads");
+
+                var fullPath = Path.Combine(uploadsFolder, fileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    dto.File.CopyTo(stream);
+                }
+
+                education.FilePath = "/uploads/" + fileName;
+            }
+
             _context.SaveChanges();
 
             return Ok("تم التعديل بنجاح");
+        }
+
+        // 🔹 حذف مؤهل + حذف الملف
+        [Authorize]
+        [HasPermission("AddEmployeeEducation")]
+        [HttpDelete("{id}")]
+        public IActionResult DeleteEducation(int id)
+        {
+            var education = _context.EmployeeEducations
+                .FirstOrDefault(e => e.Id == id);
+
+            if (education == null)
+                return NotFound("المؤهل غير موجود");
+
+            // 🔹 حذف الملف من السيرفر
+            if (!string.IsNullOrEmpty(education.FilePath))
+            {
+                var fullPath = Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "wwwroot",
+                    education.FilePath.TrimStart('/')
+                );
+
+                if (System.IO.File.Exists(fullPath))
+                    System.IO.File.Delete(fullPath);
+            }
+
+            _context.EmployeeEducations.Remove(education);
+            _context.SaveChanges();
+
+            return Ok("تم حذف المؤهل العلمي بنجاح");
+        }
+
+        // 🔹 جلب كل المؤهلات (مع الملف)
+        [Authorize]
+        [HasPermission("AddEmployeeEducation")]
+        [HttpGet("all")]
+        public IActionResult GetAllEducations()
+        {
+            var data = _context.EmployeeEducations
+                .Select(e => new
+                {
+                    e.Id,
+                    Employee = e.Employee.FullName,
+                    Qualification = e.Qualification.Name,
+                    e.Type,
+                    e.Institution,
+                    e.CreatedAt,
+                    File = e.FilePath // 👈 مهم
+                })
+                .ToList();
+
+            return Ok(data);
         }
     }
 }

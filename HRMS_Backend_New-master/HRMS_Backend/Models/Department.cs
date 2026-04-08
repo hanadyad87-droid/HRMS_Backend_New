@@ -5,7 +5,7 @@
         public int Id { get; set; }
 
         public string Name { get; set; }
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         // المدير الحالي
         public int? ManagerEmployeeId { get; set; }
         public Employee? ManagerEmployee { get; set; }

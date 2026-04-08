@@ -11,5 +11,6 @@ namespace HRMS_Backend.DTOs
         public EducationType Type { get; set; }
 
         public string Institution { get; set; } = null!;
+        public IFormFile? File { get; set; }
     }
 }

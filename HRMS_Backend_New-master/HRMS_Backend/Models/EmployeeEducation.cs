@@ -15,5 +15,6 @@
         public string Institution { get; set; } = null!;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public string? FilePath { get; set; }
     }
 }

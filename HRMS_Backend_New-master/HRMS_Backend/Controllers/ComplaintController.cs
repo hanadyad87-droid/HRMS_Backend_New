@@ -256,7 +256,7 @@ namespace HRMS_Backend.Controllers
         // =========================
         // MANAGER DECISION
         // =========================
-        [Authorize(Roles = "DepartmentManager,SubDepartmentManager,SectionManager")]
+        [Authorize(Roles = "DepartmentManager")]
         [HttpPost("{id}/manager-decision")]
         public IActionResult ManagerDecision(int id, [FromBody] ManagerDecisionDto dto)
         {
