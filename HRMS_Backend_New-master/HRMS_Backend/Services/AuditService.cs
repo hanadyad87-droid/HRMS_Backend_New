@@ -16,18 +16,16 @@ namespace HRMS_Backend.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public void Log(int? userId, string action, string entityName, string details)
+        public void Log(int? userId, string action, string entity, string details, string? ip = null)
         {
-            var ip = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
-
             var log = new AuditLog
             {
                 UserId = userId,
                 Action = action,
-                EntityName = entityName,
+                EntityName = entity,
                 Details = details,
                 IPAddress = ip,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.AuditLogs.Add(log);

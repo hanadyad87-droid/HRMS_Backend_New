@@ -45,8 +45,30 @@ namespace HRMS_Backend.Controllers
                 user.UserRoles.Add(new UserRole { User = user, Role = role });
 
             _context.Users.Add(user);
-            _context.SaveChanges();
+            _context.SaveChanges(); // 🔥 مهم جداً (يعطي user.Id)
 
+            // 🔥 إنشاء الصلاحيات
+            var permissions = _context.Permissions.ToList();
+
+            foreach (var perm in permissions)
+            {
+                _context.UserPermissions.Add(new UserPermission
+                {
+                    UserId = user.Id,
+                    PermissionId = perm.Id,
+                    IsAllowed = false,
+                    IsTemporary = false
+                });
+            }
+
+            _context.SaveChanges();
+            _auditService.Log(
+        user.Id,
+        "Register",
+        "User",
+        $"New user created: {user.Username}",
+        HttpContext.Connection.RemoteIpAddress?.ToString()
+    );
             return Ok(new { user.Id, user.Username });
         }
 
@@ -72,7 +94,8 @@ namespace HRMS_Backend.Controllers
 
             // توليد التوكن (هنا تتم عملية حقن صلاحيات المدير المكلف)
             var token = GenerateJwtToken(user, employee);
-            _auditService.Log(user.Id, "Login", "User", $"User {user.Username} logged in");
+            _auditService.Log(user.Id, "Login", "User", $"User {user.Username} logged in",
+    HttpContext.Connection.RemoteIpAddress?.ToString());
 
             return Ok(new
             {
@@ -81,8 +104,26 @@ namespace HRMS_Backend.Controllers
                 employeeId = employee?.Id,
                 employeeName = employee?.FullName
             });
-        }
 
+        }
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            var userId = User.FindFirst("id")?.Value;
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                UserId = userId != null ? int.Parse(userId) : null,
+                Action = "Logout",
+                EntityName = "User",
+                CreatedAt = DateTime.UtcNow,
+                IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+            });
+
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
         // -------------------------
         // 3. تشفير كلمة المرور
         // -------------------------
@@ -104,6 +145,7 @@ namespace HRMS_Backend.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim("UserId", user.Id.ToString()),
+                new Claim("id", user.Id.ToString()), // 🔥 هذا المهم
                 new Claim("EmployeeId", employee?.Id.ToString() ?? "0"),
                 new Claim("FullName", employee?.FullName ?? "")
             };

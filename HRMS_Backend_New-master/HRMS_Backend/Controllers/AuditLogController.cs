@@ -23,49 +23,50 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> GetLogs([FromQuery] AuditLogQuery query)
         {
             var logsQuery = _context.AuditLogs
-                .Include(x => x.User) // 🔥 باش نجيب الاسم
+                .Include(x => x.User)
                 .AsQueryable();
 
-            // 🔍 Filters
+            // 🔍 الفلاتر (كما هي)
             if (query.UserId.HasValue)
                 logsQuery = logsQuery.Where(x => x.UserId == query.UserId);
 
-            if (!string.IsNullOrEmpty(query.Action))
-                logsQuery = logsQuery.Where(x => x.Action == query.Action);
-
-            if (!string.IsNullOrEmpty(query.EntityName))
-                logsQuery = logsQuery.Where(x => x.EntityName.Contains(query.EntityName));
-
             if (query.FromDate.HasValue)
-                logsQuery = logsQuery.Where(x => x.CreatedAt >= query.FromDate);
+            {
+                logsQuery = logsQuery.Where(x => x.CreatedAt >= query.FromDate.Value);
+            }
 
             if (query.ToDate.HasValue)
-                logsQuery = logsQuery.Where(x => x.CreatedAt <= query.ToDate);
+            {
+                logsQuery = logsQuery.Where(x => x.CreatedAt <= query.ToDate.Value);
+            }
 
             var totalCount = await logsQuery.CountAsync();
 
-            var data = await logsQuery
+            // 1. جلب البيانات من قاعدة البيانات أولاً (بدون تحويل الوقت داخل الـ Select)
+            var rawData = await logsQuery
                 .OrderByDescending(x => x.CreatedAt)
                 .Skip((query.Page - 1) * query.PageSize)
                 .Take(query.PageSize)
-                .Select(x => new AuditLogDto
-                {
-                    Id = x.Id,
-                    UserId = x.UserId,
-                    UserName = x.User != null ? x.User.Username : null,
+                .ToListAsync(); // نفذنا الاستعلام هنا وجبنا البيانات للذاكرة (Memory)
 
-                    Action = x.Action,
-                    EntityName = x.EntityName,
-                    EntityId = x.EntityId,
+            // 2. تحويل الوقت في الذاكرة باستخدام C#
+            TimeZoneInfo libyaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Libya Standard Time");
 
-                    Details = x.Details,
-                    CreatedAt = x.CreatedAt,
-                    IPAddress = x.IPAddress,
-
-                    OldValues = x.OldValues,
-                    NewValues = x.NewValues
-                })
-                .ToListAsync();
+            var data = rawData.Select(x => new AuditLogDto
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                UserName = x.User != null ? x.User.Username : null,
+                Action = x.Action,
+                EntityName = x.EntityName,
+                EntityId = x.EntityId,
+                Details = x.Details,
+                // التحويل هنا آمن لأننا في الذاكرة وليس في SQL
+                CreatedAt = TimeZoneInfo.ConvertTimeFromUtc(x.CreatedAt, libyaTimeZone),
+                IPAddress = x.IPAddress,
+                OldValues = x.OldValues,
+                NewValues = x.NewValues
+            }).ToList();
 
             return Ok(new
             {
@@ -80,47 +81,34 @@ namespace HRMS_Backend.Controllers
         [HttpGet("by-username/{username}")]
         public async Task<IActionResult> GetByUsername(string username)
         {
-            var logs = await _context.AuditLogs
+            var rawLogs = await _context.AuditLogs
                 .Include(x => x.User)
                 .Where(x => x.User != null && x.User.Username == username)
-                .Select(x => new AuditLogDto
-                {
-                    Id = x.Id,
-                    UserId = x.UserId,
-                    UserName = x.User.Username,
+                .ToListAsync(); // جلبناهم للذاكرة أولاً
 
-                    Action = x.Action,
-                    EntityName = x.EntityName,
-                    EntityId = x.EntityId,
-
-                    Details = x.Details,
-                    CreatedAt = x.CreatedAt,
-                    IPAddress = x.IPAddress,
-
-                    OldValues = x.OldValues,
-                    NewValues = x.NewValues
-                })
-                .ToListAsync();
-
-            if (logs == null || !logs.Any())
+            if (rawLogs == null || !rawLogs.Any())
                 return NotFound("No logs found for this user");
+
+            TimeZoneInfo libyaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Libya Standard Time");
+
+            var logs = rawLogs.Select(x => new AuditLogDto
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                UserName = x.User?.Username,
+                Action = x.Action,
+                EntityName = x.EntityName,
+                EntityId = x.EntityId,
+                Details = x.Details,
+                CreatedAt = TimeZoneInfo.ConvertTimeFromUtc(x.CreatedAt, libyaTimeZone), // تحويل الوقت
+                IPAddress = x.IPAddress,
+                OldValues = x.OldValues,
+                NewValues = x.NewValues
+            }).ToList();
 
             return Ok(logs);
         }
 
-        [Authorize(Roles = "SuperAdmin")]
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var log = await _context.AuditLogs.FindAsync(id);
 
-            if (log == null)
-                return NotFound();
-
-            _context.AuditLogs.Remove(log);
-            await _context.SaveChangesAsync();
-
-            return Ok("Deleted");
-        }
     }
 }

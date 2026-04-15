@@ -7,11 +7,7 @@ namespace HRMS_Backend.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-        }
-
+       
         // DbSets
         public DbSet<Employee> Employees { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
@@ -55,7 +51,94 @@ namespace HRMS_Backend.Data
         public DbSet<CompanyForm> CompanyForms { get; set; }
         public DbSet<Qualification> Qualifications { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            IHttpContextAccessor httpContextAccessor)
+            : base(options)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var auditEntries = new List<AuditLog>();
+
+            var userId = _httpContextAccessor.HttpContext?.User?.FindFirst("id")?.Value;
+            var ip = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                    continue;
+
+                var audit = new AuditLog
+                {
+                    EntityName = entry.Entity.GetType().Name,
+                    CreatedAt = DateTime.UtcNow,
+                    UserId = userId != null ? int.Parse(userId) : null,
+                    IPAddress = ip
+                };
+                var keyName = entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault()?.Name;
+
+                if (keyName != null)
+                {
+                    var value = entry.Property(keyName)?.CurrentValue ??
+                                entry.Property(keyName)?.OriginalValue;
+
+                    if (value != null)
+                        audit.EntityId = Convert.ToInt32(value);
+                }
+                if (entry.State == EntityState.Added)
+                {
+                    audit.Action = "Create";
+                    audit.NewValues = System.Text.Json.JsonSerializer.Serialize(entry.CurrentValues.ToObject());
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    audit.Action = "Delete";
+                    audit.OldValues = System.Text.Json.JsonSerializer.Serialize(entry.OriginalValues.ToObject());
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    audit.Action = "Update";
+
+                    var oldValues = new Dictionary<string, object?>();
+                    var newValues = new Dictionary<string, object?>();
+                    var changedColumns = new List<string>();
+
+                    foreach (var prop in entry.Properties)
+                    {
+                        if (!Equals(prop.OriginalValue, prop.CurrentValue))
+                        {
+                            changedColumns.Add(prop.Metadata.Name);
+                            oldValues[prop.Metadata.Name] = prop.OriginalValue;
+                            newValues[prop.Metadata.Name] = prop.CurrentValue;
+                        }
+                    }
+
+                    audit.OldValues = System.Text.Json.JsonSerializer.Serialize(oldValues);
+                    audit.NewValues = System.Text.Json.JsonSerializer.Serialize(newValues);
+                    audit.ChangedColumns = string.Join(",", changedColumns);
+                }
+
+                auditEntries.Add(audit);
+            }
+
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            if (auditEntries.Any())
+            {
+                AuditLogs.AddRange(auditEntries);
+                await base.SaveChangesAsync(cancellationToken);
+            }
+
+            return result;
+        }
+        public override int SaveChanges()
+        {
+            return SaveChangesAsync().GetAwaiter().GetResult();
+        }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -138,10 +221,7 @@ namespace HRMS_Backend.Data
                 .HasForeignKey(a => a.SecondmentToEntityId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // LeaveRequest → Status default
-            modelBuilder.Entity<LeaveRequest>()
-                .Property(l => l.Status)
-                .HasDefaultValue(LeaveStatus.قيد_الانتظار);
+           
             modelBuilder.Entity<EmployeeFinancialData>()
       .HasOne(e => e.JobGrade)
       .WithMany()

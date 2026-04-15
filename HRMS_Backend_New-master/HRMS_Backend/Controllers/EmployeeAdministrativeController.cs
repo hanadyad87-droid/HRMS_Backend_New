@@ -220,24 +220,37 @@ namespace HRMS_Backend.Controllers
                 EmployeePublicId = a.Employee.PublicId,
                 FullName = a.Employee.FullName,
                 a.JobStatus,
-                JobTitle = a.JobTitle?.Name,
-                Department = a.Department?.Name,
-                SubDepartment = a.SubDepartment?.Name,
-                Section = a.Section?.Name,
+
+                // 🔥 IDs بدل Names (هذا المهم)
+                JobTitleId = a.JobTitleId,
+                DepartmentId = a.DepartmentId,
+                SubDepartmentId = a.SubDepartmentId,
+                SectionId = a.SectionId,
+                WorkLocationId = a.WorkLocationId,
+                JobGradeId = a.JobGradeId,
+
+                // اختياري لو تبي تعرض الاسم في UI
+                JobTitleName = a.JobTitle?.Name,
+                DepartmentName = a.Department?.Name,
+                SubDepartmentName = a.SubDepartment?.Name,
+                SectionName = a.Section?.Name,
+                WorkLocationName = a.WorkLocation?.Name,
+                JobGradeName = a.JobGrade?.Name,
+
                 a.StartWorkDate,
-                WorkLocation = a.WorkLocation?.Name,
-                JobGrade = a.JobGrade?.Name,
                 a.LeaveBalance,
                 a.ContractStartDate,
                 a.ContractEndDate,
                 a.AppointmentDate,
                 a.TransferType,
-                TransferFromEntity = a.TransferFromEntity?.FullName,
-                a.TransferStartDate,
-                a.TransferEndDate,
-                SecondmentToEntity = a.SecondmentToEntity?.FullName,
-                a.SecondmentStartDate,
-                a.SecondmentEndDate
+
+                TransferFromEntityId = a.TransferFromEntityId,
+                TransferStartDate = a.TransferStartDate,
+                TransferEndDate = a.TransferEndDate,
+
+                SecondmentToEntityId = a.SecondmentToEntityId,
+                SecondmentStartDate = a.SecondmentStartDate,
+                SecondmentEndDate = a.SecondmentEndDate
             });
         }
 

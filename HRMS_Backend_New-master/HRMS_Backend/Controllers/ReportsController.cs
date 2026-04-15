@@ -125,7 +125,11 @@ namespace HRMS_Backend.Controllers
                 .Select(r => new
                 {
                     Type = "إجازة",
-                    Status = r.Status.ToString(),
+                    Status =
+    r.FinalApproval == true ? "مقبول نهائي" :
+    r.FinalApproval == false ? "مرفوض" :
+    r.PartialApproval == true ? "مقبول جزئي" :
+    "قيد الانتظار",
                     EmployeeName = r.Employee!.FullName ?? "غير معروف"
                 });
 
@@ -362,7 +366,7 @@ namespace HRMS_Backend.Controllers
                 .Include(l => l.LeaveType)
                 .Where(l =>
                     allowedEmployeeIds.Contains(l.EmployeeId) &&
-                    l.Status == LeaveStatus.موافقة_نهائية &&
+                  l.FinalApproval == true &&
                     l.FromDate.Date <= toDate &&
                     l.ToDate.Date >= fromDate
                 )
