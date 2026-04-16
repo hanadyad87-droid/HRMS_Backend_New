@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using HRMS_Backend.Enums;
 
 namespace HRMS_Backend.Models
 {
@@ -24,6 +25,9 @@ namespace HRMS_Backend.Models
         public string? سبب_الرفض { get; set; }
 
         // ===== APPROVAL SYSTEM =====
+        /// <summary>يُحدَّد عند الإنشاء ولا يتغيّر — يحدد من يملك الموافقة في كل مرحلة.</summary>
+        public LeaveApprovalFlow ApprovalFlow { get; set; } = LeaveApprovalFlow.RegularEmployee;
+
         public bool? PartialApproval { get; set; }
         public bool? FinalApproval { get; set; }
 
