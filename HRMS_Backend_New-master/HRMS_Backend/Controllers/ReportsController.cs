@@ -383,6 +383,53 @@ namespace HRMS_Backend.Controllers
 
             return Ok(data);
         }
+        [HttpGet("my-report")]
+        public IActionResult GetMyReport()
+        {
+            var userId = int.Parse(User.FindFirst("UserId")!.Value);
+
+            var employee = _context.Employees
+                .FirstOrDefault(e => e.UserId == userId);
+
+            if (employee == null)
+                return NotFound("الموظف غير موجود");
+
+            // ================= إجازات الموظف =================
+            var leaves = _context.LeaveRequests
+                .Where(l => l.EmployeeId == employee.Id)
+                .Select(l => new
+                {
+                    Type = "إجازة",
+                    Status =
+                        l.FinalApproval == true ? "مقبول نهائي" :
+                        l.FinalApproval == false ? "مرفوض" :
+                        l.PartialApproval == true ? "مقبول جزئي" :
+                        "قيد الانتظار",
+                    l.FromDate,
+                    l.ToDate,
+                    l.TotalDays
+                })
+                .ToList();
+
+            // ================= مهام الموظف =================
+            var tasks = _context.TaskAssignments
+                .Where(t => t.EmployeeId == employee.Id)
+                .Select(t => new
+                {
+                    Type = "مهمة",
+                    Status = t.Status.ToString(),
+                    t.Title,
+                    t.CreatedAt
+                })
+                .ToList();
+
+            return Ok(new
+            {
+                EmployeeName = employee.FullName,
+                Leaves = leaves,
+                Tasks = tasks
+            });
+        }
 
         // ================= Helper =================
         private string GetEntityName(string entityType, int entityId)
@@ -406,6 +453,23 @@ namespace HRMS_Backend.Controllers
 
                 _ => "غير معروف"
             };
+
         }
+        [HttpGet("admin-logs-summary")]
+        public IActionResult GetLogsSummary()
+        {
+            var data = _context.AuditLogs
+                .GroupBy(l => l.Action)
+                .Select(g => new
+                {
+                    Action = g.Key,
+                    Count = g.Count()
+                })
+                .OrderByDescending(x => x.Count)
+                .ToList();
+
+            return Ok(data);
+        }
+
     }
 }

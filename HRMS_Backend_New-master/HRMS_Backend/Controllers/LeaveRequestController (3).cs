@@ -20,9 +20,9 @@ namespace HRMS_Backend.Controllers
             _context = context;
         }
 
-        // ==========================================
+        // ============================
         // CREATE LEAVE REQUEST
-        // ==========================================
+        // ============================
         [Authorize]
         [HasPermission("SubmitLeave")]
         [HttpPost("create")]
@@ -69,31 +69,7 @@ namespace HRMS_Backend.Controllers
                     return BadRequest("الرصيد غير كافي");
             }
 
-            var sectionForDeptCheck = GetManagedSection(employee.Id);
-            var subForDeptCheck = GetManagedSubDepartment(employee.Id)
-                ?? GetSubDepartmentForSection(sectionForDeptCheck);
-            var deptForDeptCheck = GetManagedDepartment(employee.Id)
-                ?? GetDepartmentForSubDepartment(subForDeptCheck)
-                ?? GetDepartmentFromAdmin(admin);
-
-            if (GetManagedDepartment(employee.Id) != null
-                && GetManagedSubDepartment(employee.Id) == null
-                && GetManagedSection(employee.Id) == null)
-            {
-                return BadRequest(
-                    "طلب إجازة مدير الإدارة العامة غير متاح عبر هذا المسار. يرجى التواصل مع الموارد البشرية.");
-            }
-
             var flow = ResolveApprovalFlow(employee.Id, admin);
-
-            var chainError = ValidateApprovalChainExists(flow, admin);
-            if (chainError != null)
-                return BadRequest(chainError);
-
-            var selfApprovalError = ValidateNoSelfApprovalAtFinalStep(flow, employee.Id, subForDeptCheck,
-                sectionForDeptCheck, deptForDeptCheck);
-            if (selfApprovalError != null)
-                return BadRequest(selfApprovalError);
 
             var leave = new LeaveRequest
             {
@@ -103,6 +79,7 @@ namespace HRMS_Backend.Controllers
                 ToDate = dto.ToDate,
                 TotalDays = totalDays,
                 Notes = dto.Notes,
+                AttachmentPath = null,
                 ApprovalFlow = flow,
                 PartialApproval = null,
                 FinalApproval = null
@@ -111,11 +88,36 @@ namespace HRMS_Backend.Controllers
             _context.LeaveRequests.Add(leave);
             _context.SaveChanges();
 
+            // =========================
+            // 🔥 إشعار أول مدير
+            // =========================
+            var section = GetManagedSection(employee.Id);
+            int? managerId = section?.ManagerEmployeeId;
+
+            if (managerId == null)
+            {
+                var sub = GetSubDepartmentFromAdmin(admin);
+                managerId = sub?.ManagerEmployeeId;
+            }
+
+            if (managerId == null)
+            {
+                var dept = GetDepartmentFromAdmin(admin);
+                managerId = dept?.ManagerEmployeeId;
+            }
+
+            if (managerId != null)
+            {
+                CreateNotificationForEmployee(
+                    managerId.Value,
+                    "طلب إجازة جديد",
+                    $"طلب إجازة جديد من {employee.FullName}"
+                );
+            }
+
             return Ok(new
             {
-                message = "تم إنشاء الطلب",
-                approvalFlow = flow.ToString(),
-                hint = FlowHint(flow)
+                message = "تم إنشاء الطلب"
             });
         }
 
@@ -388,20 +390,32 @@ namespace HRMS_Backend.Controllers
             if (!verbose)
                 return Ok(filtered);
 
-            var enriched = filtered.Select(l =>
+            var result = filtered.Select(l =>
             {
-                var adm = l.Employee?.AdministrativeData
-                    ?? _context.EmployeeAdministrativeDatas.AsNoTracking()
-                        .FirstOrDefault(a => a.EmployeeId == l.EmployeeId);
-                return new
+                return new LeaveRequestResponseDto
                 {
-                    leave = l,
-                    effectiveFlow = adm != null ? EffectiveRouting(l, adm).ToString() : "",
-                    waitingFor = adm != null ? DescribeCurrentWaitingStep(l, adm) : ""
+                    Id = l.Id,
+                    EmployeeName = l.Employee?.FullName ?? "غير معروف",
+                    LeaveType = l.LeaveType?.اسم_الاجازة ?? "غير محدد",
+
+                    FromDate = l.FromDate,
+                    ToDate = l.ToDate,
+                    TotalDays = l.TotalDays,
+
+                    PartialApproval = l.PartialApproval,
+                    FinalApproval = l.FinalApproval,
+
+                    PartialNote = l.PartialNote,
+                    FinalNote = l.FinalNote,
+
+                    RejectionReason = l.سبب_الرفض,
+                    Notes = l.Notes,
+
+                    AttachmentPath = l.AttachmentPath
                 };
             }).ToList();
 
-            return Ok(enriched);
+            return Ok(result);
         }
 
         private bool IsPendingForCurrentUser(int currentEmpId, LeaveRequest leave)
@@ -455,9 +469,6 @@ namespace HRMS_Backend.Controllers
             }
         }
 
-        // ==========================================
-        // MANAGER DECISION
-        // ==========================================
         [Authorize]
         [HasPermission("ApproveLeave")]
         [HttpPost("{id}/manager-decision")]
@@ -473,75 +484,87 @@ namespace HRMS_Backend.Controllers
 
             var currentEmpId = int.Parse(User.FindFirst("EmployeeId")?.Value ?? "0");
 
-            var requesterAdmin = _context.EmployeeAdministrativeDatas
+            var admin = _context.EmployeeAdministrativeDatas
                 .FirstOrDefault(a => a.EmployeeId == leave.EmployeeId);
 
-            if (requesterAdmin == null)
+            if (admin == null)
                 return BadRequest("لا توجد بيانات الموظف");
 
-            if (!CanActOnCurrentStep(currentEmpId, leave, requesterAdmin))
-            {
-                return BadRequest(new
-                {
-                    message = "غير مسموح لك باتخاذ قرار على هذا الطلب في هذه المرحلة",
-                    flow = EffectiveRouting(leave, requesterAdmin).ToString(),
-                    partialApproval = leave.PartialApproval,
-                    currentEmpId
-                });
-            }
+            if (!CanActOnCurrentStep(currentEmpId, leave, admin))
+                return BadRequest("غير مسموح");
 
+            // =========================
+            // ❌ رفض الطلب
+            // =========================
             if (!approve)
             {
                 leave.سبب_الرفض = note;
                 leave.FinalApproval = false;
+
+                CreateNotificationForEmployee(
+                    leave.EmployeeId,
+                    "تم رفض طلب الإجازة",
+                    note ?? "تم رفض الطلب"
+                );
+
                 _context.SaveChanges();
                 return Ok("تم الرفض");
             }
 
-            switch (EffectiveRouting(leave, requesterAdmin))
+            // =========================
+            // ✅ موافقة حسب المرحلة
+            // =========================
+            switch (EffectiveRouting(leave, admin))
             {
                 case LeaveApprovalFlow.RegularEmployee:
-                    if (leave.PartialApproval != true)
-                    {
-                        leave.PartialApproval = true;
-                        leave.PartialNote = note;
-                    }
-                    else
-                    {
-                        leave.FinalApproval = true;
-                        leave.FinalNote = note;
-                        DeductLeaveBalanceIfNeeded(leave, requesterAdmin);
-                    }
-                    break;
-
                 case LeaveApprovalFlow.SectionManager:
+
                     if (leave.PartialApproval != true)
                     {
                         leave.PartialApproval = true;
                         leave.PartialNote = note;
+
+                        // 🔔 إشعار الموظف بالموافقة الأولى
+                        CreateNotificationForEmployee(
+                            leave.EmployeeId,
+                            "تمت الموافقة على المرحلة الأولى",
+                            "تمت الموافقة على طلب الإجازة في المرحلة الأولى"
+                        );
+
+                        // 🔔 إشعار المدير التالي
+                        NotifyNextManager(leave, admin);
                     }
                     else
                     {
                         leave.FinalApproval = true;
                         leave.FinalNote = note;
-                        DeductLeaveBalanceIfNeeded(leave, requesterAdmin);
+                        DeductLeaveBalanceIfNeeded(leave, admin);
+
+                        CreateNotificationForEmployee(
+                            leave.EmployeeId,
+                            "تمت الموافقة النهائية",
+                            "تمت الموافقة على طلب الإجازة بالكامل"
+                        );
                     }
+
                     break;
 
                 case LeaveApprovalFlow.SubDepartmentManager:
                     leave.FinalApproval = true;
                     leave.FinalNote = note;
-                    DeductLeaveBalanceIfNeeded(leave, requesterAdmin);
-                    break;
+                    DeductLeaveBalanceIfNeeded(leave, admin);
 
-                default:
-                    return BadRequest("مسار موافقات غير معروف");
+                    CreateNotificationForEmployee(
+                        leave.EmployeeId,
+                        "تمت الموافقة النهائية",
+                        "تمت الموافقة على طلب الإجازة بالكامل"
+                    );
+
+                    break;
             }
 
             _context.SaveChanges();
-            return Ok(leave.FinalApproval == true
-                ? "تمت الموافقة النهائية"
-                : "تمت الموافقة على المرحلة");
+            return Ok("تم التحديث");
         }
 
         private void DeductLeaveBalanceIfNeeded(LeaveRequest leave, EmployeeAdministrativeData requesterAdmin)
@@ -551,6 +574,87 @@ namespace HRMS_Backend.Controllers
 
             if (leave.LeaveType != null && leave.LeaveType.مخصومة_من_الرصيد)
                 requesterAdmin.LeaveBalance -= leave.TotalDays;
+        }
+        private void CreateNotificationForEmployee(int employeeId, string title, string message)
+        {
+            var notification = new Notification
+            {
+                UserId = employeeId,
+                Title = title,
+                Message = message,
+                CreatedAt = DateTime.Now,
+                IsRead = false
+            };
+
+            _context.Notifications.Add(notification);
+        }
+        private void CreateNotificationForManager(LeaveRequest leave, string title, string message)
+        {
+            var admin = _context.EmployeeAdministrativeDatas
+                .FirstOrDefault(a => a.EmployeeId == leave.EmployeeId);
+
+            if (admin == null) return;
+
+            int? managerId = null;
+
+            var section = GetManagedSection(leave.EmployeeId);
+            if (section?.ManagerEmployeeId != null)
+                managerId = section.ManagerEmployeeId;
+
+            if (managerId == null)
+            {
+                var sub = GetSubDepartmentFromAdmin(admin);
+                if (sub?.ManagerEmployeeId != null)
+                    managerId = sub.ManagerEmployeeId;
+            }
+
+            if (managerId == null)
+            {
+                var dept = GetDepartmentFromAdmin(admin);
+                managerId = dept?.ManagerEmployeeId;
+            }
+
+            if (managerId == null) return;
+
+            var notification = new Notification
+            {
+                UserId = managerId.Value,
+                Title = title,
+                Message = message,
+                CreatedAt = DateTime.Now,
+                IsRead = false
+            };
+
+            _context.Notifications.Add(notification);
+        }
+        private void NotifyNextManager(LeaveRequest leave, EmployeeAdministrativeData admin)
+        {
+            int? nextManagerId = null;
+
+            var section = GetManagedSection(leave.EmployeeId);
+            if (section?.ManagerEmployeeId != null)
+                nextManagerId = section.ManagerEmployeeId;
+
+            if (nextManagerId == null)
+            {
+                var sub = GetSubDepartmentFromAdmin(admin);
+                nextManagerId = sub?.ManagerEmployeeId;
+            }
+
+            if (nextManagerId == null)
+            {
+                var dept = GetDepartmentFromAdmin(admin);
+                nextManagerId = dept?.ManagerEmployeeId;
+            }
+
+            if (nextManagerId != null)
+            {
+                CreateNotificationForEmployee(
+                    nextManagerId.Value,
+                    "طلب إجازة جديد يحتاج مراجعة",
+                    "وصلتك إجازة تحتاج موافقة"
+                );
+            }
         }
     }
 }

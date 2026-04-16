@@ -117,14 +117,25 @@ namespace HRMS_Backend.Controllers
             if (empAdmin.Section.ManagerEmployeeId != currentManager.Id)
                 return Forbid();
 
-            request.Status = approve ? "تمت_الموافقة" : "مرفوض";
-
+          
+            if (approve)
+            {
+                request.Status = "تمت_الموافقة";
+                request.IsHrNotified = true;
+            }
+            else
+            {
+                request.Status = "مرفوض";
+                request.IsHrNotified = true;
+            }
             // إشعار الموظف
             _context.Notifications.Add(new Notification
             {
                 UserId = request.Employee.UserId,
-                Title = "تحديث إذن خروج",
-                Message = $"تم {request.Status} على طلب إذن الخروج الخاص بك",
+                Title = "طلب إذن خروج",
+                Message = approve
+         ? "تمت الموافقة على طلبك"
+         : "تم رفض طلبك",
                 CreatedAt = DateTime.Now
             });
 
@@ -140,8 +151,8 @@ namespace HRMS_Backend.Controllers
                 _context.Notifications.Add(new Notification
                 {
                     UserId = hrUserId,
-                    Title = "معلومة - إذن خروج",
-                    Message = $"طلب إذن خروج للموظف {request.Employee.FullName} أصبح: {request.Status}",
+                    Title = "طلب إذن خروج - تحديث",
+                    Message = $"تم {request.Status} للموظف {request.Employee.FullName}",
                     CreatedAt = DateTime.Now
                 });
             }
@@ -167,13 +178,10 @@ namespace HRMS_Backend.Controllers
 
             // HR يشوفوا الطلبات اللي المدير وافق عليها فقط
             var requests = await _context.ExitPermitRequests
-                .Include(r => r.Employee)
-                .Where(r =>
-                    r.Status == "تمت_الموافقة" &&
-                    r.IsHrNotified == true
-                )
-                .OrderByDescending(r => r.Id)
-                .ToListAsync();
+        .Include(r => r.Employee)
+        .Where(r => r.Status == "تمت_الموافقة")
+        .OrderByDescending(r => r.Id)
+        .ToListAsync();
 
             return Ok(requests);
         }
