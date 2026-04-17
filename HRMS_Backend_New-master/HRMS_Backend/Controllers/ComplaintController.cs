@@ -2,6 +2,7 @@
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Enums;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +17,12 @@ namespace HRMS_Backend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _config;
-
-        public ComplaintController(ApplicationDbContext context, IConfiguration config)
+        private readonly INotificationService _notifications;
+        public ComplaintController(ApplicationDbContext context, IConfiguration config, INotificationService notifications)
         {
             _context = context;
             _config = config;
+            _notifications = notifications;
         }
 
         // =========================
@@ -57,7 +59,7 @@ namespace HRMS_Backend.Controllers
         // =========================
         [AllowAnonymous]
         [HttpPost("create")]
-        public IActionResult CreateComplaint([FromForm] CreateComplaintDto dto)
+        public async Task<IActionResult> CreateComplaint([FromForm] CreateComplaintDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -124,43 +126,42 @@ namespace HRMS_Backend.Controllers
                 var managers = _context.Departments
                     .Where(d => d.ManagerEmployeeId != null)
                     .Select(d => d.ManagerEmployeeId!.Value)
+                    .Distinct()
                     .ToList();
 
                 foreach (var managerId in managers)
                 {
-                    var manager = _context.Employees.Find(managerId);
+                    var manager = _context.Employees
+                        .FirstOrDefault(e => e.Id == managerId);
+
                     if (manager != null)
                     {
-                        _context.Notifications.Add(new Notification
-                        {
-                            UserId = manager.UserId,
-                            Title = "شكوى عامة جديدة",
-                            Message = "تم إرسال شكوى موجهة لجميع الإدارات",
-                            CreatedAt = DateTime.Now
-                        });
+                        await _notifications.NotifyEmployeeAsync(
+                            manager.Id,
+                            "شكوى عامة جديدة",
+                            "تم إرسال شكوى لجميع الإدارات");
                     }
                 }
             }
             else if (dto.DepartmentId != null)
             {
-                var department = _context.Departments.Find(dto.DepartmentId);
+                var department = _context.Departments
+                    .FirstOrDefault(d => d.Id == dto.DepartmentId);
+
                 if (department?.ManagerEmployeeId != null)
                 {
-                    var manager = _context.Employees.Find(department.ManagerEmployeeId);
+                    var manager = _context.Employees
+                        .FirstOrDefault(e => e.Id == department.ManagerEmployeeId);
+
                     if (manager != null)
                     {
-                        _context.Notifications.Add(new Notification
-                        {
-                            UserId = manager.UserId,
-                            Title = "شكوى جديدة",
-                            Message = "تم إرسال شكوى لإدارتك",
-                            CreatedAt = DateTime.Now
-                        });
+                        await _notifications.NotifyEmployeeAsync(
+                            manager.Id,
+                            "شكوى جديدة",
+                            "تم إرسال شكوى لإدارتك");
                     }
                 }
             }
-
-            _context.SaveChanges();
 
             return Ok(new { message = "تم إرسال الشكوى بنجاح" });
         }
@@ -258,7 +259,7 @@ namespace HRMS_Backend.Controllers
         // =========================
         [Authorize(Roles = "DepartmentManager")]
         [HttpPost("{id}/manager-decision")]
-        public IActionResult ManagerDecision(int id, [FromBody] ManagerDecisionDto dto)
+        public async Task<IActionResult> ManagerDecision(int id, [FromBody] ManagerDecisionDto dto)
         {
             var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
             if (string.IsNullOrEmpty(employeeIdClaim))
@@ -284,31 +285,12 @@ namespace HRMS_Backend.Controllers
             complaint.Notes = dto.Notes;
             complaint.UpdatedAt = DateTime.Now;
 
-            // إشعار للموظف
-            var employeeUserId = _context.Employees
-                .Where(e => e.Id == complaint.EmployeeId)
-                .Select(e => e.UserId)
-                .FirstOrDefault();
-
-            // إشعار للموظف فقط إذا كان هناك موظف معروف
-            // إشعار للموظف فقط إذا كان هناك موظف معروف
             if (complaint.EmployeeId != null)
             {
-                var userIdToNotify = _context.Employees
-                    .Where(e => e.Id == complaint.EmployeeId)
-                    .Select(e => e.UserId)
-                    .FirstOrDefault();
-
-                if (userIdToNotify != null)
-                {
-                    _context.Notifications.Add(new Notification
-                    {
-                        UserId = userIdToNotify,
-                        Title = "تم تحديث شكواك",
-                        Message = $"حالة الشكوى: {complaint.Status}",
-                        CreatedAt = DateTime.Now
-                    });
-                }
+                await _notifications.NotifyEmployeeAsync(
+                    complaint.EmployeeId.Value,
+                    "تم تحديث شكواك",
+                    $"حالة الشكوى: {complaint.Status}");
             }
 
 

@@ -1,6 +1,7 @@
 ﻿using HRMS_Backend.Data;
 using HRMS_Backend.DTOs.ExitPermits;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace HRMS_Backend.Controllers
     public class ExitPermitController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notifications;
 
-        public ExitPermitController(ApplicationDbContext context)
+        public ExitPermitController(ApplicationDbContext context, INotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         // 1. إنشاء طلب إذن خروج
@@ -128,18 +131,13 @@ namespace HRMS_Backend.Controllers
                 request.Status = "مرفوض";
                 request.IsHrNotified = true;
             }
-            // إشعار الموظف
-            _context.Notifications.Add(new Notification
-            {
-                UserId = request.Employee.UserId,
-                Title = "طلب إذن خروج",
-                Message = approve
-         ? "تمت الموافقة على طلبك"
-         : "تم رفض طلبك",
-                CreatedAt = DateTime.Now
-            });
+            await _context.SaveChangesAsync();
 
-            // إشعار HR كمعلومة فقط
+            await _notifications.NotifyEmployeeAsync(
+                request.Employee.Id,
+                "طلب إذن خروج",
+                approve ? "تمت الموافقة على طلبك" : "تم رفض طلبك");
+
             var hrUsers = await _context.UserPermissions
                 .Include(up => up.Permission)
                 .Where(up => up.Permission.PermissionName == "ManageExitPermits" && up.IsAllowed)
@@ -148,16 +146,11 @@ namespace HRMS_Backend.Controllers
 
             foreach (var hrUserId in hrUsers)
             {
-                _context.Notifications.Add(new Notification
-                {
-                    UserId = hrUserId,
-                    Title = "طلب إذن خروج - تحديث",
-                    Message = $"تم {request.Status} للموظف {request.Employee.FullName}",
-                    CreatedAt = DateTime.Now
-                });
+                await _notifications.NotifyUserAsync(
+                    hrUserId,
+                    "طلب إذن خروج - تحديث",
+                    $"تم {request.Status} للموظف {request.Employee.FullName}");
             }
-
-            await _context.SaveChangesAsync();
             return Ok($"تم {request.Status} بنجاح");
         }
         [HttpGet("hr-view")]

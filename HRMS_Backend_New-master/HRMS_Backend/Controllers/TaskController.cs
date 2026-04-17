@@ -2,6 +2,7 @@
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Enums;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace HRMS_Backend.Controllers
     public class TaskController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notifications;
 
-        public TaskController(ApplicationDbContext context)
+        public TaskController(ApplicationDbContext context, INotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
         [HttpGet("section-employees")]
         public IActionResult GetSectionEmployees()
@@ -114,19 +117,12 @@ namespace HRMS_Backend.Controllers
             };
 
             _context.TaskAssignments.Add(task);
-
-            // إشعار للموظف
-            var notification = new Notification
-            {
-                UserId = dto.EmployeeId,
-                Title = "تكليف مهمة جديدة",
-                Message = $"تم تكليفك بمهمة: {dto.Title}",
-                CreatedAt = DateTime.Now
-            };
-
-            _context.Notifications.Add(notification);
-
             await _context.SaveChangesAsync();
+
+            await _notifications.NotifyEmployeeAsync(
+                dto.EmployeeId,
+                "تكليف مهمة جديدة",
+                $"تم تكليفك بمهمة: {dto.Title}");
 
             return Ok("تم إرسال التكليف بنجاح");
         }
@@ -200,7 +196,7 @@ namespace HRMS_Backend.Controllers
         // =========================
 
         [HttpPut("manager-decision/{id}")]
-        public IActionResult UpdateManagerDecision(int id, ManagerDecision decision)
+        public async Task<IActionResult> UpdateManagerDecision(int id, ManagerDecision decision)
         {
             var managerId = int.Parse(User.Claims.First(c => c.Type == "EmployeeId").Value);
             var task = _context.TaskAssignments.FirstOrDefault(t => t.Id == id);
@@ -209,20 +205,15 @@ namespace HRMS_Backend.Controllers
 
             task.ManagerDecision = decision;
 
-            // إشعار الموظف
             string message = decision == ManagerDecision.Approved
                 ? $"تم قبول مهمتك: {task.Title}"
                 : $"تم رفض مهمتك: {task.Title}";
 
-            _context.Notifications.Add(new Notification
-            {
-                UserId = task.EmployeeId,
-                Title = "قرار المدير على مهمتك",
-                Message = message,
-                CreatedAt = DateTime.Now
-            });
-
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+            await _notifications.NotifyEmployeeAsync(
+                task.EmployeeId,
+                "قرار المدير على مهمتك",
+                message);
 
             return Ok("تم تحديث القرار وإرسال الإشعار");
         }
@@ -288,17 +279,13 @@ namespace HRMS_Backend.Controllers
             string employeeName = _context.Employees.Find(employeeId)?.FullName ?? "Unknown";
             string commentText = string.IsNullOrWhiteSpace(dto.Comment) && dto.Attachment != null ? "(تم إرسال مرفق)" : dto.Comment;
 
-            int notifyUserId = employeeId == task.EmployeeId ? task.AssignedByEmployeeId : task.EmployeeId;
-
-            _context.Notifications.Add(new Notification
-            {
-                UserId = notifyUserId,
-                Title = "تعليق جديد على المهمة",
-                Message = $"{employeeName}: {commentText}",
-                CreatedAt = DateTime.Now
-            });
+            int notifyEmployeeId = employeeId == task.EmployeeId ? task.AssignedByEmployeeId : task.EmployeeId;
 
             await _context.SaveChangesAsync();
+            await _notifications.NotifyEmployeeAsync(
+                notifyEmployeeId,
+                "تعليق جديد على المهمة",
+                $"{employeeName}: {commentText}");
 
             return Ok("تم إضافة التعليق بنجاح");
         }

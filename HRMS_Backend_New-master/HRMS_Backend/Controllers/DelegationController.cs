@@ -2,6 +2,7 @@
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Models;
 using HRMS_Backend.Enums;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
@@ -14,10 +15,12 @@ namespace HRMS_Backend.Controllers
     public class DelegationController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notifications;
 
-        public DelegationController(ApplicationDbContext context)
+        public DelegationController(ApplicationDbContext context, INotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         // ========================================================
@@ -156,16 +159,10 @@ namespace HRMS_Backend.Controllers
                 .Select(e => e.FullName)
                 .FirstOrDefaultAsync() ?? "المدير الحالي";
 
-            var notification = new Notification
-            {
-                UserId = dto.ActingManagerId,
-                Title = "تكليف بمهام إدارية",
-                Message = $"تم تكليفك رسمياً بمهام مدير ({targetName}) بدلاً من السيد/ة ({originalManagerName})، وذلك اعتباراً من اليوم وحتى تاريخ {dto.EndDate:yyyy-MM-dd}. لديك الآن كافة الصلاحيات الإدارية المؤقتة.",
-                CreatedAt = DateTime.Now,
-                IsRead = false
-            };
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync();
+            await _notifications.NotifyEmployeeAsync(
+                dto.ActingManagerId,
+                "تكليف بمهام إدارية",
+                $"تم تكليفك رسمياً بمهام مدير ({targetName}) بدلاً من السيد/ة ({originalManagerName})، وذلك اعتباراً من اليوم وحتى تاريخ {dto.EndDate:yyyy-MM-dd}. لديك الآن كافة الصلاحيات الإدارية المؤقتة.");
 
             return Ok(new { message = $"تم التكليف بنجاح على ({targetName}) وإرسال إشعار للموظف المكلف." });
         }
@@ -234,18 +231,12 @@ namespace HRMS_Backend.Controllers
 
             _context.UserPermissions.RemoveRange(tempPermissions);
 
-            // إشعار الإلغاء
-            var revokeNotification = new Notification
-            {
-                UserId = delegation.ActingManagerId,
-                Title = "انتهاء فترة التكليف",
-                Message = $"تم إنهاء تكليفك بمهام الإدارة من قبل السيد/ة ({delegation.OriginalManager?.FullName ?? "المدير"}). شكراً لجهودك خلال الفترة الماضية.",
-                CreatedAt = DateTime.Now,
-                IsRead = false
-            };
-            _context.Notifications.Add(revokeNotification);
-
             await _context.SaveChangesAsync();
+
+            await _notifications.NotifyEmployeeAsync(
+                delegation.ActingManagerId,
+                "انتهاء فترة التكليف",
+                $"تم إنهاء تكليفك بمهام الإدارة من قبل السيد/ة ({delegation.OriginalManager?.FullName ?? "المدير"}). شكراً لجهودك خلال الفترة الماضية.");
             return Ok(new { message = "تم إلغاء التكليف بنجاح وإرسال إشعار للموظف." });
         }
     }

@@ -2,6 +2,7 @@
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Enums;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +16,13 @@ namespace HRMS_Backend.Controllers
     public class SalaryCertificateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notifications;
 
-        public SalaryCertificateController(ApplicationDbContext context) => _context = context;
+        public SalaryCertificateController(ApplicationDbContext context, INotificationService notifications)
+        {
+            _context = context;
+            _notifications = notifications;
+        }
 
         [HttpPost("submit")]
         public async Task<IActionResult> Submit(CreateSalaryCertificateDto dto)
@@ -168,16 +174,12 @@ namespace HRMS_Backend.Controllers
 
             request.Status = isReady ? "جاهزة" : "مرفوض";
 
-            // إشعار للموظف (اختياري لكنه ممتاز)
-            _context.Notifications.Add(new Notification
-            {
-                UserId = request.Employee.UserId,
-                Title = "تحديث طلب شهادة مرتب",
-                Message = $"تم تحديث حالة طلبك إلى: {request.Status}",
-                CreatedAt = DateTime.Now
-            });
-
             await _context.SaveChangesAsync();
+
+            await _notifications.NotifyEmployeeAsync(
+                request.Employee.Id,
+                "تحديث طلب شهادة مرتب",
+                $"تم تحديث حالة طلبك إلى: {request.Status}");
             return Ok($"تم تحديث حالة الطلب إلى: {request.Status}");
         }
     }

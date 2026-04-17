@@ -3,6 +3,7 @@ using HRMS_Backend.Data;
 using HRMS_Backend.DTOs;
 using HRMS_Backend.Enums;
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,13 @@ namespace HRMS_Backend.Controllers
     [Route("api/leave-requests")]
     public class LeaveRequestController : ControllerBase
     {
+        private readonly INotificationService _notifications;
         private readonly ApplicationDbContext _context;
 
-        public LeaveRequestController(ApplicationDbContext context)
+        public LeaveRequestController(ApplicationDbContext context, INotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         // ============================
@@ -26,7 +29,7 @@ namespace HRMS_Backend.Controllers
         [Authorize]
         [HasPermission("SubmitLeave")]
         [HttpPost("create")]
-        public IActionResult Create([FromForm] CreateLeaveRequestDto dto)
+        public async Task<IActionResult> Create([FromForm] CreateLeaveRequestDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -108,7 +111,7 @@ namespace HRMS_Backend.Controllers
 
             if (managerId != null)
             {
-                CreateNotificationForEmployee(
+                await _notifications.NotifyEmployeeAsync(
                     managerId.Value,
                     "طلب إجازة جديد",
                     $"طلب إجازة جديد من {employee.FullName}"
@@ -472,7 +475,7 @@ namespace HRMS_Backend.Controllers
         [Authorize]
         [HasPermission("ApproveLeave")]
         [HttpPost("{id}/manager-decision")]
-        public IActionResult ManagerDecision(int id, bool approve, string? note)
+        public async Task<IActionResult> ManagerDecision(int id, bool approve, string? note)
         {
             var leave = _context.LeaveRequests
                 .Include(l => l.Employee)
@@ -496,12 +499,13 @@ namespace HRMS_Backend.Controllers
             // =========================
             // ❌ رفض الطلب
             // =========================
+            // ❌ رفض الطلب
             if (!approve)
             {
                 leave.سبب_الرفض = note;
                 leave.FinalApproval = false;
 
-                CreateNotificationForEmployee(
+                await _notifications.NotifyEmployeeAsync(
                     leave.EmployeeId,
                     "تم رفض طلب الإجازة",
                     note ?? "تم رفض الطلب"
@@ -510,7 +514,6 @@ namespace HRMS_Backend.Controllers
                 _context.SaveChanges();
                 return Ok("تم الرفض");
             }
-
             // =========================
             // ✅ موافقة حسب المرحلة
             // =========================
@@ -521,26 +524,27 @@ namespace HRMS_Backend.Controllers
 
                     if (leave.PartialApproval != true)
                     {
+                        // ✅ المرحلة الأولى
                         leave.PartialApproval = true;
                         leave.PartialNote = note;
 
-                        // 🔔 إشعار الموظف بالموافقة الأولى
-                        CreateNotificationForEmployee(
+                        await _notifications.NotifyEmployeeAsync(
                             leave.EmployeeId,
                             "تمت الموافقة على المرحلة الأولى",
                             "تمت الموافقة على طلب الإجازة في المرحلة الأولى"
                         );
 
                         // 🔔 إشعار المدير التالي
-                        NotifyNextManager(leave, admin);
+                        await NotifyNextManager(leave, admin);
                     }
                     else
                     {
+                        // ✅ الموافقة النهائية
                         leave.FinalApproval = true;
                         leave.FinalNote = note;
                         DeductLeaveBalanceIfNeeded(leave, admin);
 
-                        CreateNotificationForEmployee(
+                        await _notifications.NotifyEmployeeAsync(
                             leave.EmployeeId,
                             "تمت الموافقة النهائية",
                             "تمت الموافقة على طلب الإجازة بالكامل"
@@ -554,7 +558,7 @@ namespace HRMS_Backend.Controllers
                     leave.FinalNote = note;
                     DeductLeaveBalanceIfNeeded(leave, admin);
 
-                    CreateNotificationForEmployee(
+                    await _notifications.NotifyEmployeeAsync(
                         leave.EmployeeId,
                         "تمت الموافقة النهائية",
                         "تمت الموافقة على طلب الإجازة بالكامل"
@@ -575,59 +579,8 @@ namespace HRMS_Backend.Controllers
             if (leave.LeaveType != null && leave.LeaveType.مخصومة_من_الرصيد)
                 requesterAdmin.LeaveBalance -= leave.TotalDays;
         }
-        private void CreateNotificationForEmployee(int employeeId, string title, string message)
-        {
-            var notification = new Notification
-            {
-                UserId = employeeId,
-                Title = title,
-                Message = message,
-                CreatedAt = DateTime.Now,
-                IsRead = false
-            };
 
-            _context.Notifications.Add(notification);
-        }
-        private void CreateNotificationForManager(LeaveRequest leave, string title, string message)
-        {
-            var admin = _context.EmployeeAdministrativeDatas
-                .FirstOrDefault(a => a.EmployeeId == leave.EmployeeId);
-
-            if (admin == null) return;
-
-            int? managerId = null;
-
-            var section = GetManagedSection(leave.EmployeeId);
-            if (section?.ManagerEmployeeId != null)
-                managerId = section.ManagerEmployeeId;
-
-            if (managerId == null)
-            {
-                var sub = GetSubDepartmentFromAdmin(admin);
-                if (sub?.ManagerEmployeeId != null)
-                    managerId = sub.ManagerEmployeeId;
-            }
-
-            if (managerId == null)
-            {
-                var dept = GetDepartmentFromAdmin(admin);
-                managerId = dept?.ManagerEmployeeId;
-            }
-
-            if (managerId == null) return;
-
-            var notification = new Notification
-            {
-                UserId = managerId.Value,
-                Title = title,
-                Message = message,
-                CreatedAt = DateTime.Now,
-                IsRead = false
-            };
-
-            _context.Notifications.Add(notification);
-        }
-        private void NotifyNextManager(LeaveRequest leave, EmployeeAdministrativeData admin)
+        private async Task NotifyNextManager(LeaveRequest leave, EmployeeAdministrativeData admin)
         {
             int? nextManagerId = null;
 
@@ -649,12 +602,27 @@ namespace HRMS_Backend.Controllers
 
             if (nextManagerId != null)
             {
-                CreateNotificationForEmployee(
+                await _notifications.NotifyEmployeeAsync(
                     nextManagerId.Value,
                     "طلب إجازة جديد يحتاج مراجعة",
-                    "وصلتك إجازة تحتاج موافقة"
-                );
+                    "وصلتك إجازة تحتاج موافقة");
             }
+        }
+        private int? GetNextManagerId(int employeeId, EmployeeAdministrativeData admin)
+        {
+            var section = GetManagedSection(employeeId);
+            if (section?.ManagerEmployeeId != null)
+                return section.ManagerEmployeeId;
+
+            var sub = GetSubDepartmentFromAdmin(admin);
+            if (sub?.ManagerEmployeeId != null)
+                return sub.ManagerEmployeeId;
+
+            var dept = GetDepartmentFromAdmin(admin);
+            if (dept?.ManagerEmployeeId != null)
+                return dept.ManagerEmployeeId;
+
+            return null;
         }
     }
 }

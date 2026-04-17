@@ -1,6 +1,4 @@
-﻿using System.Security.Claims;
-using HRMS_Backend.Data;
-using Microsoft.AspNetCore.Http;
+﻿using HRMS_Backend.Data;
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
 
@@ -21,7 +19,6 @@ namespace HRMS_Backend.Controllers
         [HttpGet]
         public IActionResult GetMyNotifications()
         {
-            // الحصول على EmployeeId من الـJWT
             var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
             if (employeeIdClaim == null)
                 return Unauthorized("EmployeeId missing in token.");
@@ -35,6 +32,7 @@ namespace HRMS_Backend.Controllers
 
             return Ok(notifications);
         }
+
         // 🔥 تعليم كل الإشعارات كمقروءة
         [HttpPut("read-all")]
         public IActionResult MarkAllAsRead()
