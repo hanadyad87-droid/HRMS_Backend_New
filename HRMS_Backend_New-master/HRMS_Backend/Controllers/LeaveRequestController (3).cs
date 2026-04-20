@@ -624,5 +624,138 @@ namespace HRMS_Backend.Controllers
 
             return null;
         }
+        [Authorize]
+        [HasPermission("ApproveLeave")]
+        [HttpGet("manager/all")]
+        public IActionResult GetAllForManager(
+         [FromQuery] bool verbose = false,
+         [FromQuery] int page = 1,
+         [FromQuery] int pageSize = 10)
+        {
+            var currentEmpId = int.Parse(User.FindFirst("EmployeeId")?.Value ?? "0");
+
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var query = _context.LeaveRequests
+                .Include(l => l.Employee)!.ThenInclude(e => e!.AdministrativeData)
+                .Include(l => l.LeaveType)
+                .OrderByDescending(l => l.Id)
+                .AsQueryable();
+
+            var filtered = query
+                .AsEnumerable()
+                .Where(l => HasAccessToRequest(currentEmpId, l))
+                .ToList();
+
+            var totalCount = filtered.Count;
+
+            var paged = filtered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            if (!verbose)
+            {
+                return Ok(new
+                {
+                    totalCount,
+                    page,
+                    pageSize,
+                    data = paged
+                });
+            }
+
+            var result = paged.Select(l =>
+            {
+                var admin = l.Employee?.AdministrativeData;
+
+                return new
+                {
+                    id = l.Id,
+                    employeeName = l.Employee?.FullName ?? "غير معروف",
+                    leaveType = l.LeaveType?.اسم_الاجازة ?? "غير محدد",
+
+                    fromDate = l.FromDate,
+                    toDate = l.ToDate,
+                    totalDays = l.TotalDays,
+
+                    status = GetFullStatus(l, admin),
+                    waitingFor = admin != null ? DescribeCurrentWaitingStep(l, admin) : "",
+
+                    partialApproval = l.PartialApproval,
+                    finalApproval = l.FinalApproval,
+
+                    partialNote = l.PartialNote,
+                    finalNote = l.FinalNote,
+
+                    rejectionReason = l.سبب_الرفض,
+                    notes = l.Notes,
+
+                    // ✅ هذا هو المطلوب (المرفق)
+                    attachmentPath = l.AttachmentPath
+                };
+            }).ToList();
+
+            return Ok(new
+            {
+                totalCount,
+                page,
+                pageSize,
+                data = result
+            });
+        }
+        private bool HasAccessToRequest(int currentEmpId, LeaveRequest leave)
+        {
+            var admin = leave.Employee?.AdministrativeData
+                ?? _context.EmployeeAdministrativeDatas
+                    .AsNoTracking()
+                    .FirstOrDefault(a => a.EmployeeId == leave.EmployeeId);
+
+            if (admin == null)
+                return false;
+
+            var section = GetManagedSection(leave.EmployeeId) ?? GetSectionFromAdmin(admin);
+            var sub = GetManagedSubDepartment(leave.EmployeeId)
+                ?? GetSubDepartmentForSection(section)
+                ?? GetSubDepartmentFromAdmin(admin);
+            var dept = GetManagedDepartment(leave.EmployeeId)
+                ?? GetDepartmentForSubDepartment(sub)
+                ?? GetDepartmentFromAdmin(admin);
+
+            return section?.ManagerEmployeeId == currentEmpId
+                || sub?.ManagerEmployeeId == currentEmpId
+                || dept?.ManagerEmployeeId == currentEmpId;
+        }
+        private string GetFullStatus(LeaveRequest l, EmployeeAdministrativeData? admin)
+        {
+            if (l.FinalApproval == false)
+                return "مرفوض";
+
+            if (l.FinalApproval == true)
+                return "مقبول نهائياً";
+
+            if (admin == null)
+                return "قيد الانتظار";
+
+            switch (EffectiveRouting(l, admin))
+            {
+                case LeaveApprovalFlow.RegularEmployee:
+                    if (l.PartialApproval == true)
+                        return "بانتظار مدير الإدارة الفرعية";
+                    return "بانتظار مدير القسم";
+
+                case LeaveApprovalFlow.SectionManager:
+                    if (l.PartialApproval == true)
+                        return "بانتظار مدير الإدارة العامة";
+                    return "بانتظار مدير الإدارة الفرعية";
+
+                case LeaveApprovalFlow.SubDepartmentManager:
+                    return "بانتظار مدير الإدارة العامة";
+
+                default:
+                    return "قيد الانتظار";
+            }
+        }
     }
 }
