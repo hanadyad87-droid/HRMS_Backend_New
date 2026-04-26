@@ -50,6 +50,7 @@ namespace HRMS_Backend.Data
         public DbSet<ManagerDelegation> ManagerDelegations { get; set; }
         public DbSet<CompanyForm> CompanyForms { get; set; }
         public DbSet<Qualification> Qualifications { get; set; }
+        public DbSet<Organization> Organizations { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -210,15 +211,15 @@ namespace HRMS_Backend.Data
             // ================= Transfer & Secondment (Self Reference) =================
 
             modelBuilder.Entity<EmployeeAdministrativeData>()
-                .HasOne(a => a.TransferFromEntity)
+                .HasOne(a => a.TransferFromOrganization)
                 .WithMany()
-                .HasForeignKey(a => a.TransferFromEntityId)
+                .HasForeignKey(a => a.TransferFromOrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<EmployeeAdministrativeData>()
-                .HasOne(a => a.SecondmentToEntity)
+                .HasOne(a => a.SecondmentToOrganization)
                 .WithMany()
-                .HasForeignKey(a => a.SecondmentToEntityId)
+                .HasForeignKey(a => a.SecondmentToOrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
            

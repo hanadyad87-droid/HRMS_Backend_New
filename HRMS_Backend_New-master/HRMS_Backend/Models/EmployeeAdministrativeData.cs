@@ -31,18 +31,25 @@ namespace HRMS_Backend.Models
         public DateTime? AppointmentDate { get; set; }
 
         // ======= إضافة الحقول المفقودة =======
-        // انتداب
-        public string? TransferType { get; set; }                 // هذا الحقل مفقود عندك
-        public int? TransferFromEntityId { get; set; }
-        public Employee? TransferFromEntity { get; set; }
-        public DateTime? TransferStartDate { get; set; }
-        public DateTime? TransferEndDate { get; set; }
+      // =====================
+// انتداب (من جهة)
+// =====================
+public string? TransferType { get; set; }
 
-        // إعارة
-        public int? SecondmentToEntityId { get; set; }
-        public Employee? SecondmentToEntity { get; set; }
-        public DateTime? SecondmentStartDate { get; set; }
-        public DateTime? SecondmentEndDate { get; set; }
+public int? TransferFromOrganizationId { get; set; }
+public Organization? TransferFromOrganization { get; set; }
+
+public DateTime? TransferStartDate { get; set; }
+public DateTime? TransferEndDate { get; set; }
+
+// =====================
+// إعارة (إلى جهة)
+// =====================
+public int? SecondmentToOrganizationId { get; set; }
+public Organization? SecondmentToOrganization { get; set; }
+
+public DateTime? SecondmentStartDate { get; set; }
+public DateTime? SecondmentEndDate { get; set; }
 
         // علاقة الموظف
         public Employee Employee { get; set; } = null!;

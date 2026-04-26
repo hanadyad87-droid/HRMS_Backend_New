@@ -27,12 +27,12 @@ namespace HRMS_Backend.DTOs
 
         // منتدب
         public string? TransferType { get; set; }
-        public int? TransferFromEntityId { get; set; } // لو مرتبط بجهة
+        public int? TransferFromOrganizationId { get; set; } // لو مرتبط بجهة
         public DateTime? TransferStartDate { get; set; }
         public DateTime? TransferEndDate { get; set; }
 
         // إعارة
-        public int? SecondmentToEntityId { get; set; } // لو مرتبط بجهة
+        public int? SecondmentToOrganizationId { get; set; } // لو مرتبط بجهة
         public DateTime? SecondmentStartDate { get; set; }
         public DateTime? SecondmentEndDate { get; set; }
 

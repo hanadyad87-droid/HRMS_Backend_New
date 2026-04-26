@@ -65,11 +65,11 @@ namespace HRMS_Backend.Controllers
                 AppointmentDate = dto.AppointmentDate,
 
                 TransferType = dto.TransferType,
-                TransferFromEntityId = dto.TransferFromEntityId,
+                TransferFromOrganizationId = dto.TransferFromOrganizationId,
                 TransferStartDate = dto.TransferStartDate,
                 TransferEndDate = dto.TransferEndDate,
 
-                SecondmentToEntityId = dto.SecondmentToEntityId,
+                SecondmentToOrganizationId = dto.SecondmentToOrganizationId,
                 SecondmentStartDate = dto.SecondmentStartDate,
                 SecondmentEndDate = dto.SecondmentEndDate
             };
@@ -100,9 +100,9 @@ namespace HRMS_Backend.Controllers
             var employee = _context.Employees
                 .Include(e => e.User)
                 .Include(e => e.AdministrativeData)
-                    .ThenInclude(a => a.TransferFromEntity)
+                    .ThenInclude(a => a.TransferFromOrganization)
                 .Include(e => e.AdministrativeData)
-                    .ThenInclude(a => a.SecondmentToEntity)
+                    .ThenInclude(a => a.SecondmentToOrganization)
                 .FirstOrDefault(e => e.User.Username == username);
 
             if (employee == null || employee.AdministrativeData == null)
@@ -136,11 +136,11 @@ namespace HRMS_Backend.Controllers
                 a.AppointmentDate,
 
                 a.TransferType,
-                TransferFromEntity = a.TransferFromEntity?.FullName,
+                TransferFromEntity = a.TransferFromOrganization?.Name,
                 a.TransferStartDate,
                 a.TransferEndDate,
 
-                SecondmentToEntity = a.SecondmentToEntity?.FullName,
+                SecondmentToEntity = a.SecondmentToOrganization?.Name,
                 a.SecondmentStartDate,
                 a.SecondmentEndDate
             });
@@ -161,8 +161,8 @@ namespace HRMS_Backend.Controllers
                 .Include(a => a.Section)
                 .Include(a => a.WorkLocation)
                 .Include(a => a.JobGrade)
-                .Include(a => a.TransferFromEntity)
-                .Include(a => a.SecondmentToEntity)
+                .Include(a => a.TransferFromOrganization)
+                .Include(a => a.SecondmentToOrganization)
                 .Select(a => new
                 {
                     a.Id,
@@ -180,10 +180,10 @@ namespace HRMS_Backend.Controllers
                     a.ContractStartDate,
                     a.ContractEndDate,
                     a.AppointmentDate,
-                    TransferFromEntity = a.TransferFromEntity != null ? a.TransferFromEntity.FullName : null,
+                    TransferFromEntity = a.TransferFromOrganization != null ? a.TransferFromOrganization.Name : null,
                     a.TransferStartDate,
                     a.TransferEndDate,
-                    SecondmentToEntity = a.SecondmentToEntity != null ? a.SecondmentToEntity.FullName : null,
+                    SecondmentToEntity = a.SecondmentToOrganization != null ? a.SecondmentToOrganization.Name : null,
                     a.SecondmentStartDate,
                     a.SecondmentEndDate
                 })
@@ -207,8 +207,8 @@ namespace HRMS_Backend.Controllers
                 .Include(x => x.Section)
                 .Include(x => x.WorkLocation)
                 .Include(x => x.JobGrade)
-                .Include(x => x.TransferFromEntity)
-                .Include(x => x.SecondmentToEntity)
+                .Include(x => x.TransferFromOrganization)
+                .Include(x => x.SecondmentToOrganization)
                 .FirstOrDefault(x => x.Employee.PublicId == publicId);
 
             if (a == null)
@@ -244,11 +244,11 @@ namespace HRMS_Backend.Controllers
                 a.AppointmentDate,
                 a.TransferType,
 
-                TransferFromEntityId = a.TransferFromEntityId,
+                TransferFromEntityId = a.TransferFromOrganizationId,
                 TransferStartDate = a.TransferStartDate,
                 TransferEndDate = a.TransferEndDate,
 
-                SecondmentToEntityId = a.SecondmentToEntityId,
+                SecondmentToEntityId = a.SecondmentToOrganizationId,
                 SecondmentStartDate = a.SecondmentStartDate,
                 SecondmentEndDate = a.SecondmentEndDate
             });
@@ -283,10 +283,10 @@ namespace HRMS_Backend.Controllers
             a.ContractEndDate = dto.ContractEndDate;
             a.AppointmentDate = dto.AppointmentDate;
             a.TransferType = dto.TransferType;
-            a.TransferFromEntityId = dto.TransferFromEntityId;
+            a.TransferFromOrganizationId = dto.TransferFromOrganizationId;
             a.TransferStartDate = dto.TransferStartDate;
             a.TransferEndDate = dto.TransferEndDate;
-            a.SecondmentToEntityId = dto.SecondmentToEntityId;
+            a.SecondmentToOrganizationId = dto.SecondmentToOrganizationId;
             a.SecondmentStartDate = dto.SecondmentStartDate;
             a.SecondmentEndDate = dto.SecondmentEndDate;
 
@@ -328,11 +328,11 @@ namespace HRMS_Backend.Controllers
                         return "يجب إدخال تاريخ التعيين";
                     break;
                 case JobStatus.Transfer:
-                    if (dto.TransferStartDate == null || dto.TransferEndDate == null || dto.TransferFromEntityId == null)
+                    if (dto.TransferStartDate == null || dto.TransferEndDate == null || dto.TransferFromOrganizationId == null)
                         return "بيانات الانتداب غير مكتملة";
                     break;
                 case JobStatus.Secondment:
-                    if (dto.SecondmentStartDate == null || dto.SecondmentEndDate == null || dto.SecondmentToEntityId == null)
+                    if (dto.SecondmentStartDate == null || dto.SecondmentEndDate == null || dto.SecondmentToOrganizationId == null)
                         return "بيانات الإعارة غير مكتملة";
                     break;
             }
