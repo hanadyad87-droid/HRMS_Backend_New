@@ -1,6 +1,8 @@
 ﻿using HRMS_Backend.Data;
 using HRMS_Backend.Hubs;
 using HRMS_Backend.Services;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -133,6 +135,20 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
+
+// Firebase Admin (اختياري): فعّله عند توفير مسار Service Account JSON.
+var firebaseCredPath = builder.Configuration["Firebase:CredentialsPath"]
+    ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_PATH");
+if (!string.IsNullOrWhiteSpace(firebaseCredPath) && File.Exists(firebaseCredPath))
+{
+    if (FirebaseApp.DefaultInstance is null)
+    {
+        FirebaseApp.Create(new AppOptions
+        {
+            Credential = GoogleCredential.FromFile(firebaseCredPath)
+        });
+    }
+}
 
 // 7. Middleware
 if (app.Environment.IsDevelopment())

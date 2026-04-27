@@ -1,6 +1,7 @@
 ﻿using HRMS_Backend.Data;
 using HRMS_Backend.DTOs; // تأكدي من وجود الـ DTO هنا
 using HRMS_Backend.Models;
+using HRMS_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,12 @@ namespace HRMS_Backend.Controllers
     public class AnnouncementsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notifications;
 
-        public AnnouncementsController(ApplicationDbContext context)
+        public AnnouncementsController(ApplicationDbContext context, INotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         // ========================
@@ -115,6 +118,7 @@ namespace HRMS_Backend.Controllers
 
             _context.Announcements.Add(announcement);
             await _context.SaveChangesAsync();
+            await NotifyTargetEmployeesAsync(announcement);
 
             return Ok(announcement);
         }
@@ -143,6 +147,7 @@ namespace HRMS_Backend.Controllers
             announcement.Active = dto.Active;
 
             await _context.SaveChangesAsync();
+            await NotifyTargetEmployeesAsync(announcement, isUpdate: true);
 
             return Ok(new
             {
@@ -166,6 +171,28 @@ namespace HRMS_Backend.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "تم تعطيل الإعلان بنجاح" });
+        }
+
+        private async Task NotifyTargetEmployeesAsync(Announcement announcement, bool isUpdate = false)
+        {
+            var targetEmployeeIds = _context.EmployeeAdministrativeDatas
+                .AsNoTracking()
+                .Where(a => announcement.TargetAll || a.DepartmentId == announcement.TargetDepartmentId)
+                .Select(a => a.EmployeeId)
+                .Distinct()
+                .ToList();
+
+            if (!targetEmployeeIds.Any())
+                return;
+
+            var title = isUpdate ? "تحديث إعلان" : "إعلان جديد";
+            var action = isUpdate ? "تم تحديث إعلان" : "تم نشر إعلان";
+            var message = $"{action}: {announcement.Title} [[route:/announcements?announcementId={announcement.Id}]]";
+
+            foreach (var employeeId in targetEmployeeIds)
+            {
+                await _notifications.NotifyEmployeeAsync(employeeId, title, message);
+            }
         }
     }
 }

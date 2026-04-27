@@ -66,6 +66,30 @@ namespace HRMS_Backend.Controllers
 
             var leaveType = _context.LeaveTypes.Find(dto.LeaveTypeId);
 
+            if (leaveType != null && leaveType.تحتاج_نموذج && dto.Attachment == null)
+                return BadRequest("هذا النوع من الإجازة يتطلب رفع نموذج");
+
+            string filePath = null;
+
+            if (dto.Attachment != null)
+            {
+                var uploadsFolder = Path.Combine("wwwroot", "uploads", "leaves");
+
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var fileName = Guid.NewGuid() + Path.GetExtension(dto.Attachment.FileName);
+
+                var fullPath = Path.Combine(uploadsFolder, fileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await dto.Attachment.CopyToAsync(stream);
+                }
+
+                filePath = "/uploads/leaves/" + fileName;
+            }
+           
             if (leaveType != null && leaveType.مخصومة_من_الرصيد)
             {
                 if (admin.LeaveBalance < totalDays)
@@ -82,7 +106,7 @@ namespace HRMS_Backend.Controllers
                 ToDate = dto.ToDate,
                 TotalDays = totalDays,
                 Notes = dto.Notes,
-                AttachmentPath = null,
+                AttachmentPath = filePath,
                 ApprovalFlow = flow,
                 PartialApproval = null,
                 FinalApproval = null
@@ -91,30 +115,14 @@ namespace HRMS_Backend.Controllers
             _context.LeaveRequests.Add(leave);
             _context.SaveChanges();
 
-            // =========================
-            // 🔥 إشعار أول مدير
-            // =========================
-            var section = GetManagedSection(employee.Id);
-            int? managerId = section?.ManagerEmployeeId;
-
-            if (managerId == null)
-            {
-                var sub = GetSubDepartmentFromAdmin(admin);
-                managerId = sub?.ManagerEmployeeId;
-            }
-
-            if (managerId == null)
-            {
-                var dept = GetDepartmentFromAdmin(admin);
-                managerId = dept?.ManagerEmployeeId;
-            }
+            var managerId = GetInitialManagerForFlow(employee.Id, admin, flow);
 
             if (managerId != null)
             {
                 await _notifications.NotifyEmployeeAsync(
                     managerId.Value,
                     "طلب إجازة جديد",
-                    $"طلب إجازة جديد من {employee.FullName}"
+                    $"طلب إجازة جديد من {employee.FullName} [[route:/manager/leaves?leaveId={leave.Id}]]"
                 );
             }
 
@@ -311,8 +319,12 @@ namespace HRMS_Backend.Controllers
                 fromDate = l.FromDate,
                 toDate = l.ToDate,
                 status = MapLeaveStatusForMobile(l, admin),
+                rejectionReason = l.سبب_الرفض,
                 waitingFor = DescribeCurrentWaitingStep(l, admin),
-                effectiveFlow = EffectiveRouting(l, admin).ToString()
+                effectiveFlow = EffectiveRouting(l, admin).ToString(),
+                requiresForm = l.LeaveType?.تحتاج_نموذج ?? false,
+                hasAttachment = !string.IsNullOrEmpty(l.AttachmentPath),
+                attachmentPath = l.AttachmentPath
             }).ToList();
 
             return Ok(new { requests, balance });
@@ -508,7 +520,7 @@ namespace HRMS_Backend.Controllers
                 await _notifications.NotifyEmployeeAsync(
                     leave.EmployeeId,
                     "تم رفض طلب الإجازة",
-                    note ?? "تم رفض الطلب"
+                    $"{(string.IsNullOrWhiteSpace(note) ? "تم رفض الطلب" : note)} [[route:/leaves?leaveId={leave.Id}]]"
                 );
 
                 _context.SaveChanges();
@@ -531,7 +543,7 @@ namespace HRMS_Backend.Controllers
                         await _notifications.NotifyEmployeeAsync(
                             leave.EmployeeId,
                             "تمت الموافقة على المرحلة الأولى",
-                            "تمت الموافقة على طلب الإجازة في المرحلة الأولى"
+                            $"تمت الموافقة على طلب الإجازة في المرحلة الأولى [[route:/leaves?leaveId={leave.Id}]]"
                         );
 
                         // 🔔 إشعار المدير التالي
@@ -547,7 +559,7 @@ namespace HRMS_Backend.Controllers
                         await _notifications.NotifyEmployeeAsync(
                             leave.EmployeeId,
                             "تمت الموافقة النهائية",
-                            "تمت الموافقة على طلب الإجازة بالكامل"
+                            $"تمت الموافقة على طلب الإجازة بالكامل [[route:/leaves?leaveId={leave.Id}]]"
                         );
                     }
 
@@ -561,7 +573,7 @@ namespace HRMS_Backend.Controllers
                     await _notifications.NotifyEmployeeAsync(
                         leave.EmployeeId,
                         "تمت الموافقة النهائية",
-                        "تمت الموافقة على طلب الإجازة بالكامل"
+                        $"تمت الموافقة على طلب الإجازة بالكامل [[route:/leaves?leaveId={leave.Id}]]"
                     );
 
                     break;
@@ -584,29 +596,46 @@ namespace HRMS_Backend.Controllers
         {
             int? nextManagerId = null;
 
-            var section = GetManagedSection(leave.EmployeeId);
-            if (section?.ManagerEmployeeId != null)
-                nextManagerId = section.ManagerEmployeeId;
+            var flow = EffectiveRouting(leave, admin);
+            var section = GetManagedSection(leave.EmployeeId) ?? GetSectionFromAdmin(admin);
+            var sub = GetManagedSubDepartment(leave.EmployeeId)
+                ?? GetSubDepartmentForSection(section)
+                ?? GetSubDepartmentFromAdmin(admin);
+            var dept = GetManagedDepartment(leave.EmployeeId)
+                ?? GetDepartmentForSubDepartment(sub)
+                ?? GetDepartmentFromAdmin(admin);
 
-            if (nextManagerId == null)
-            {
-                var sub = GetSubDepartmentFromAdmin(admin);
+            if (flow == LeaveApprovalFlow.RegularEmployee)
                 nextManagerId = sub?.ManagerEmployeeId;
-            }
-
-            if (nextManagerId == null)
-            {
-                var dept = GetDepartmentFromAdmin(admin);
+            else if (flow == LeaveApprovalFlow.SectionManager)
                 nextManagerId = dept?.ManagerEmployeeId;
-            }
 
             if (nextManagerId != null)
             {
                 await _notifications.NotifyEmployeeAsync(
                     nextManagerId.Value,
                     "طلب إجازة جديد يحتاج مراجعة",
-                    "وصلتك إجازة تحتاج موافقة");
+                    $"وصلتك إجازة تحتاج موافقة [[route:/manager/leaves?leaveId={leave.Id}]]");
             }
+        }
+
+        private int? GetInitialManagerForFlow(int employeeId, EmployeeAdministrativeData admin, LeaveApprovalFlow flow)
+        {
+            var section = GetManagedSection(employeeId) ?? GetSectionFromAdmin(admin);
+            var sub = GetManagedSubDepartment(employeeId)
+                ?? GetSubDepartmentForSection(section)
+                ?? GetSubDepartmentFromAdmin(admin);
+            var dept = GetManagedDepartment(employeeId)
+                ?? GetDepartmentForSubDepartment(sub)
+                ?? GetDepartmentFromAdmin(admin);
+
+            return flow switch
+            {
+                LeaveApprovalFlow.RegularEmployee => section?.ManagerEmployeeId,
+                LeaveApprovalFlow.SectionManager => sub?.ManagerEmployeeId,
+                LeaveApprovalFlow.SubDepartmentManager => dept?.ManagerEmployeeId,
+                _ => null
+            };
         }
         private int? GetNextManagerId(int employeeId, EmployeeAdministrativeData admin)
         {

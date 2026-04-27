@@ -139,7 +139,7 @@ namespace HRMS_Backend.Controllers
                         await _notifications.NotifyEmployeeAsync(
                             manager.Id,
                             "شكوى عامة جديدة",
-                            "تم إرسال شكوى لجميع الإدارات");
+                            $"تم إرسال شكوى جديدة لجميع الإدارات [[route:/manager/complaints?complaintId={complaint.Id}]]");
                     }
                 }
             }
@@ -158,7 +158,7 @@ namespace HRMS_Backend.Controllers
                         await _notifications.NotifyEmployeeAsync(
                             manager.Id,
                             "شكوى جديدة",
-                            "تم إرسال شكوى لإدارتك");
+                            $"تم إرسال شكوى جديدة لإدارتك [[route:/manager/complaints?complaintId={complaint.Id}]]");
                     }
                 }
             }
@@ -290,7 +290,7 @@ namespace HRMS_Backend.Controllers
                 await _notifications.NotifyEmployeeAsync(
                     complaint.EmployeeId.Value,
                     "تم تحديث شكواك",
-                    $"حالة الشكوى: {complaint.Status}");
+                    $"حالة الشكوى: {complaint.Status} [[route:/complaints?complaintId={complaint.Id}]]");
             }
 
 
