@@ -89,7 +89,7 @@ namespace HRMS_Backend.Controllers
 
                 filePath = "/uploads/leaves/" + fileName;
             }
-           
+
             if (leaveType != null && leaveType.مخصومة_من_الرصيد)
             {
                 if (admin.LeaveBalance < totalDays)
