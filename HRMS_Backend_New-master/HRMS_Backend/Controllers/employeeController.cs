@@ -50,6 +50,28 @@ namespace HRMS_Backend.Controllers
             return Convert.ToBase64String(sha256.ComputeHash(bytes));
         }
 
+        // ==================== حفظ FCM Token للموظف ====================
+        [HttpPost("save-fcm-token")]
+        public async Task<IActionResult> SaveFcmToken([FromBody] SaveFcmTokenDto dto)
+        {
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out int employeeId))
+            {
+                return Unauthorized("فشل التحقق من هوية الموظف");
+            }
+
+            var employee = await _context.Employees.FindAsync(employeeId);
+            if (employee == null)
+            {
+                return NotFound("الموظف غير موجود");
+            }
+
+            employee.FcmToken = dto.Token;
+            await _context.SaveChangesAsync();
+
+            return Ok("تم حفظ التوكن بنجاح");
+        }
+
         // ==================== إنشاء موظف مع إرسال إيميل ====================
         [HasPermission("AddEmployee")]
         [HttpPost("create-account")]

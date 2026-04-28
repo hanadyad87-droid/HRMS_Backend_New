@@ -29,6 +29,9 @@
         // 🔹 صورة الموظف
         public string? PhotoPath { get; set; }
 
+        // 🔹 Firebase Cloud Messaging Token
+        public string? FcmToken { get; set; }
+
         public ICollection<Employee> Subordinates { get; set; } = new List<Employee>();
         public ICollection<EmployeeEducation> Educations { get; set; } = new List<EmployeeEducation>();
         public EmployeeAdministrativeData AdministrativeData { get; set; } = null!;

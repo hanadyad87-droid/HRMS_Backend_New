@@ -1,3 +1,7 @@
+using FcmMessage = FirebaseAdmin.Messaging.Message;
+using FcmNotification = FirebaseAdmin.Messaging.Notification;
+using FcmAndroidConfig = FirebaseAdmin.Messaging.AndroidConfig;
+using FcmAndroidNotification = FirebaseAdmin.Messaging.AndroidNotification;
 using HRMS_Backend.Data;
 using HRMS_Backend.Hubs;
 using HRMS_Backend.Models;
@@ -31,6 +35,7 @@ namespace HRMS_Backend.Services
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync(cancellationToken);
 
+            // إرسال إشعار عبر SignalR
             await _hub.Clients.Group(employeeId.ToString())
                 .SendAsync(
                     "ReceiveNotification",
@@ -43,6 +48,61 @@ namespace HRMS_Backend.Services
                         isRead = notification.IsRead
                     },
                     cancellationToken);
+
+            // إرسال إشعار عبر Firebase Cloud Messaging (FCM)
+            await SendFirebasePushNotificationAsync(employeeId, title, message, cancellationToken);
+        }
+
+        private async Task SendFirebasePushNotificationAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // جلب FCM Token للموظف
+                var employee = await _context.Employees
+                    .AsNoTracking()
+                    .Where(e => e.Id == employeeId)
+                    .Select(e => e.FcmToken)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (string.IsNullOrEmpty(employee))
+                {
+                    // الموظف ليس لديه FCM Token
+                    return;
+                }
+
+                // إنشاء الإشعار
+                var fcmMessage = new FcmMessage
+                {
+                    Token = employee,
+                    Notification = new FcmNotification
+                    {
+                        Title = title,
+                        Body = message
+                    },
+                    Data = new Dictionary<string, string>
+                    {
+                        { "notificationId", DateTime.Now.Ticks.ToString() },
+                        { "type", "general" }
+                    },
+                    Android = new FcmAndroidConfig
+                    {
+                        Priority = FirebaseAdmin.Messaging.Priority.High,
+                        Notification = new FcmAndroidNotification
+                        {
+                            ChannelId = "hrms_channel",
+                            Sound = "default"
+                        }
+                    }
+                };
+
+                // إرسال الإشعار
+                await FirebaseAdmin.Messaging.FirebaseMessaging.DefaultInstance.SendAsync(fcmMessage, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // تسجيل الخطأ ولكن عدم إيقاف التنفيذ
+                Console.WriteLine($"خطأ في إرسال إشعار FCM: {ex.Message}");
+            }
         }
 
         public async Task NotifyUserAsync(int userId, string title, string message, CancellationToken cancellationToken = default)

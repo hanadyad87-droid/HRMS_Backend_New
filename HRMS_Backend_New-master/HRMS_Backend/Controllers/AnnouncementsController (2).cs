@@ -55,7 +55,8 @@ namespace HRMS_Backend.Controllers
                 .FirstOrDefaultAsync(a => a.EmployeeId == employeeId);
 
             var query = _context.Announcements
-                .Where(a => a.Active);
+     .Where(a => a.Active && (a.ExpiryDate == null || a.ExpiryDate > DateTime.Now));
+
 
             if (adminData != null)
             {
@@ -84,7 +85,8 @@ namespace HRMS_Backend.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAnnouncements(int? departmentId = null)
         {
-            var query = _context.Announcements.AsQueryable();
+            var query = _context.Announcements
+    .Where(a => a.Active && (a.ExpiryDate == null || a.ExpiryDate > DateTime.Now));
 
             if (departmentId != null)
             {
@@ -112,6 +114,7 @@ namespace HRMS_Backend.Controllers
                 Message = dto.Message,
                 TargetAll = dto.TargetAll,
                 TargetDepartmentId = dto.TargetDepartmentId,
+                ExpiryDate = dto.ExpiryDate,
                 Active = dto.Active,
                 CreatedAt = DateTime.Now // التأكيد على وقت الإنشاء
             };
@@ -144,6 +147,7 @@ namespace HRMS_Backend.Controllers
             announcement.Message = dto.Message;
             announcement.TargetAll = dto.TargetAll;
             announcement.TargetDepartmentId = dto.TargetDepartmentId;
+            announcement.ExpiryDate = dto.ExpiryDate;
             announcement.Active = dto.Active;
 
             await _context.SaveChangesAsync();

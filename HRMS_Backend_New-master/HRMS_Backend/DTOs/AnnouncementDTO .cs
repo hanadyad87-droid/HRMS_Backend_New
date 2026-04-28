@@ -4,5 +4,6 @@
     public string Message { get; set; }
     public bool TargetAll { get; set; } = true;
     public int? TargetDepartmentId { get; set; }
+    public DateTime? ExpiryDate { get; set; }
     public bool Active { get; set; } = true;
 }

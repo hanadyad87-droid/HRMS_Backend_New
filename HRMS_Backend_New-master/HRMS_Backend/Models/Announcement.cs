@@ -23,6 +23,7 @@ namespace HRMS_Backend.Models
         [ForeignKey("TargetDepartment")]
         public int? TargetDepartmentId { get; set; }  // الإعلان لإدارة معينة (nullable)
         public Department TargetDepartment { get; set; }
+        public DateTime? ExpiryDate { get; set; } // تاريخ انتهاء الإعلان
 
         public bool Active { get; set; } = true;  // هل الإعلان مفعل
     }
