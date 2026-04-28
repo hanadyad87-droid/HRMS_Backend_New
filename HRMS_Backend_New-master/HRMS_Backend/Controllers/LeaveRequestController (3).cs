@@ -290,27 +290,29 @@ namespace HRMS_Backend.Controllers
         // ==========================================
         [Authorize]
         [HttpGet("my-requests")]
-        public IActionResult GetMyRequests()
+        public async Task<IActionResult> GetMyRequests()
         {
             var userId = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
             if (userId == 0)
                 return Unauthorized();
 
-            var employee = _context.Employees.FirstOrDefault(e => e.UserId == userId);
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.UserId == userId);
             if (employee == null)
                 return NotFound("الموظف غير موجود");
 
-            var admin = _context.EmployeeAdministrativeDatas
-                .FirstOrDefault(a => a.EmployeeId == employee.Id);
+            var admin = await _context.EmployeeAdministrativeDatas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id);
 
             var balance = admin?.LeaveBalance ?? 0;
 
-            var list = _context.LeaveRequests
+            var list = await _context.LeaveRequests
                 .AsNoTracking()
                 .Include(l => l.LeaveType)
                 .Where(l => l.EmployeeId == employee.Id)
                 .OrderByDescending(l => l.Id)
-                .ToList();
+                .ToListAsync();
 
             var requests = list.Select(l => new
             {
@@ -390,15 +392,16 @@ namespace HRMS_Backend.Controllers
         [Authorize]
         [HasPermission("ApproveLeave")]
         [HttpGet("manager/pending")]
-        public IActionResult GetPending([FromQuery] bool verbose = false)
+        public async Task<IActionResult> GetPending([FromQuery] bool verbose = false)
         {
             var currentEmpId = int.Parse(User.FindFirst("EmployeeId")?.Value ?? "0");
 
-            var all = _context.LeaveRequests
+            var all = await _context.LeaveRequests
+                .AsNoTracking()
                 .Include(l => l.Employee)!.ThenInclude(e => e!.AdministrativeData)
                 .Include(l => l.LeaveType)
                 .Where(l => l.FinalApproval == null)
-                .ToList();
+                .ToListAsync();
 
             var filtered = all.Where(l => IsPendingForCurrentUser(currentEmpId, l)).ToList();
 
