@@ -23,7 +23,10 @@ namespace HRMS_Backend.Models // تأكدي إن الـ namespace نفس الل�
         public DateTime PermitDate { get; set; } // تاريخ الإذن
 
         [Required]
-        public TimeSpan PermitTime { get; set; } // ساعة الإذن (ساعة الخروج)
+        public TimeSpan FromTime { get; set; } // وقت الخروج
+
+        [Required]
+        public TimeSpan ToTime { get; set; } // وقت العودة
 
         [Required]
         public string Reason { get; set; } // سبب الإذن

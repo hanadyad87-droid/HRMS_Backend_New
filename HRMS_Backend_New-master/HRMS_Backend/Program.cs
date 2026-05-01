@@ -134,21 +134,13 @@ builder.Services.AddCors(options =>
 // 6. إضافة الخدمات
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// إضافة FCM HTTP Service (للإشعارات بدون ملف credentials)
+builder.Services.AddHttpClient<FCMHttpService>();
+
 var app = builder.Build();
 
-// Firebase Admin (اختياري): فعّله عند توفير مسار Service Account JSON.
-var firebaseCredPath = builder.Configuration["Firebase:CredentialsPath"]
-    ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_PATH");
-if (!string.IsNullOrWhiteSpace(firebaseCredPath) && File.Exists(firebaseCredPath))
-{
-    if (FirebaseApp.DefaultInstance is null)
-    {
-        FirebaseApp.Create(new AppOptions
-        {
-            Credential = GoogleCredential.FromFile(firebaseCredPath)
-        });
-    }
-}
+// ✅ ملاحظة: Firebase Admin SDK معطل - نستخدم HTTP API بدلاً منه
+// لو حبيت ترجعه لاحقاً، احتاج ملف Service Account JSON من Firebase Console
 
 // 7. Middleware
 if (app.Environment.IsDevelopment())

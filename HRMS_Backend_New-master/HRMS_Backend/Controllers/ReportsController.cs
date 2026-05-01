@@ -25,18 +25,17 @@ namespace HRMS_Backend.Controllers
             return int.Parse(User.FindFirst("UserId")!.Value);
         }
 
-        private Employee GetCurrentEmployee()
+        private async Task<Employee> GetCurrentEmployeeAsync()
         {
             var userId = GetCurrentUserId();
 
-            return _context.Users
+            return (await _context.Users
                 .Include(u => u.Employee)
                     .ThenInclude(e => e.AdministrativeData)
                         .ThenInclude(a => a.SubDepartment)
                             .ThenInclude(sd => sd.Department)
                 .Include(u => u.Employee.AdministrativeData.Section)
-                .First(u => u.Id == userId)
-                .Employee!;
+                .FirstAsync(u => u.Id == userId)).Employee!;
         }
 
         private string GetUserLevel(Employee emp)
@@ -86,9 +85,9 @@ namespace HRMS_Backend.Controllers
         // ================= Employees By SubDepartment =================
         [HttpGet("employees-by-subdepartment")]
         [HasPermission("ViewReports")]
-        public IActionResult GetEmployeesBySubDepartment()
+        public async Task<IActionResult> GetEmployeesBySubDepartment()
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
             var data = ApplyEmployeeFilter(currentEmployee)
                 .Where(e => e.AdministrativeData != null)
@@ -107,13 +106,13 @@ namespace HRMS_Backend.Controllers
         // ================= Requests Report =================
         [HttpGet("requests-report")]
         [HasPermission("ViewReports")]
-        public IActionResult GetRequestsReport()
+        public async Task<IActionResult> GetRequestsReport()
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
             var today = DateTime.Now;
 
@@ -189,19 +188,21 @@ namespace HRMS_Backend.Controllers
         // ================= Employees By Qualification =================
         [HttpGet("employees-by-qualification")]
         [HasPermission("ViewReports")]
-        public IActionResult GetEmployeesByQualification()
+        public async Task<IActionResult> GetEmployeesByQualification()
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
-            var data = _context.EmployeeEducations
+            var data = await _context.EmployeeEducations
                 .Include(e => e.Employee)
                 .Include(e => e.Qualification)
                 .Where(e => allowedEmployeeIds.Contains(e.EmployeeId))
-                .ToList()
+                .ToListAsync();
+
+            var result = data
                 .GroupBy(e => e.Qualification.Name)
                 .Select(g => new EmployeesByQualificationDto
                 {
@@ -213,23 +214,25 @@ namespace HRMS_Backend.Controllers
                 })
                 .ToList();
 
-            return Ok(data);
+            return Ok(result);
         }
         // ================= Tasks Report =================
         [HttpGet("tasks-report")]
         [HasPermission("ViewReports")]
-        public IActionResult GetTasksReport()
+        public async Task<IActionResult> GetTasksReport()
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
-            var data = _context.TaskAssignments
+            var data = await _context.TaskAssignments
                 .Include(t => t.Employee)
                 .Where(t => allowedEmployeeIds.Contains(t.EmployeeId))
-                .ToList()
+                .ToListAsync();
+
+            var result = data
                 .GroupBy(t => t.Status)
                 .Select(g => new TasksReportDto
                 {
@@ -241,22 +244,24 @@ namespace HRMS_Backend.Controllers
                 })
                 .ToList();
 
-            return Ok(data);
+            return Ok(result);
         }
         [HttpGet("tasks-by-employee")]
         [HasPermission("ViewReports")]
-        public IActionResult GetTasksByEmployee()
+        public async Task<IActionResult> GetTasksByEmployee()
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
             Console.WriteLine(string.Join(",", allowedEmployeeIds));
-       var data = _context.TaskAssignments
+       var data = await _context.TaskAssignments
     .Include(t => t.Employee)
     .Where(t => t.Employee != null)
-    .ToList()
+    .ToListAsync();
+
+       var result = data
     .GroupBy(t => t.Employee.FullName)
     .Select(g => new
     {
@@ -265,25 +270,24 @@ namespace HRMS_Backend.Controllers
     })
     .ToList();
 
-            return Ok(data);
+            return Ok(result);
         }
         // ================= Delegations Report =================
         [HttpGet("delegations-report")]
         [HasPermission("ViewReports")]
-        public IActionResult GetDelegationsReport()
+        public async Task<IActionResult> GetDelegationsReport()
         {
-            var currentEmployee = GetCurrentEmployee();
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var currentEmployee = await GetCurrentEmployeeAsync();
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
             var today = DateTime.Now;
 
-            var data = _context.ManagerDelegations
+            var data = await _context.ManagerDelegations
                 .Include(d => d.ActingManager)
                 .Include(d => d.OriginalManager)
                 .Include(d => d.AssignedBy)
-                .ToList()
                 .Where(d =>
                     allowedEmployeeIds.Contains(d.ActingManagerId) ||
                     allowedEmployeeIds.Contains(d.OriginalManagerId))
@@ -300,7 +304,7 @@ namespace HRMS_Backend.Controllers
                         ? "نشط"
                         : "منتهي"
                 })
-                .ToList();
+                .ToListAsync();
 
             return Ok(data);
         }
@@ -309,11 +313,11 @@ namespace HRMS_Backend.Controllers
         [HttpGet("employees-by-grade/{gradeId}")]
         public async Task<IActionResult> GetEmployeesByGrade(int gradeId)
         {
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
             var data = await _context.EmployeeFinancialDatas
                 .Include(e => e.Employee)
@@ -335,12 +339,12 @@ namespace HRMS_Backend.Controllers
 
             return Ok(new
             {
-                JobGrade = data.First().JobGrade.Name,
+                JobGrade = data.First().JobGrade?.Name ?? "غير محدد",
                 Count = data.Count,
                 Employees = data.Select(e => new
                 {
-                    Id = e.Employee.Id,
-                    Name = e.Employee.FullName
+                    Id = e.Employee?.Id ?? 0,
+                    Name = e.Employee?.FullName ?? "غير معروف"
                 })
             });
         }
@@ -348,20 +352,20 @@ namespace HRMS_Backend.Controllers
         // ================= Employees On Leave =================
         [HttpGet("employees-on-leave")]
         [HasPermission("ViewReports")]
-        public IActionResult GetEmployeesOnLeave(
+        public async Task<IActionResult> GetEmployeesOnLeave(
             [FromQuery] DateTime fromDate,
             [FromQuery] DateTime toDate)
         {
             if (toDate < fromDate)
                 return BadRequest("تاريخ النهاية لازم يكون بعد البداية");
 
-            var currentEmployee = GetCurrentEmployee();
+            var currentEmployee = await GetCurrentEmployeeAsync();
 
-            var allowedEmployeeIds = ApplyEmployeeFilter(currentEmployee)
+            var allowedEmployeeIds = await ApplyEmployeeFilter(currentEmployee)
                 .Select(e => e.Id)
-                .ToList();
+                .ToListAsync();
 
-            var data = _context.LeaveRequests
+            var data = await _context.LeaveRequests
                 .Include(l => l.Employee)
                 .Include(l => l.LeaveType)
                 .Where(l =>
@@ -379,7 +383,7 @@ namespace HRMS_Backend.Controllers
                     TotalDays = l.TotalDays
                 })
                 .OrderBy(l => l.FromDate)
-                .ToList();
+                .ToListAsync();
 
             return Ok(data);
         }

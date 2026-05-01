@@ -218,9 +218,12 @@ namespace HRMS_Backend.Controllers
         // ==================== جميع الموظفين ====================
         [HasPermission("ViewEmployee")]
         [HttpGet("all")]
-        public IActionResult GetAllEmployees()
+        public async Task<IActionResult> GetAllEmployees([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
-            var employees = _context.Employees
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 50;
+
+            var employees = await _context.Employees
                 .Include(e => e.User)
                 .ThenInclude(u => u.UserRoles)
                 .Select(e => new
@@ -232,9 +235,23 @@ namespace HRMS_Backend.Controllers
                         ? e.User.UserRoles.Select(ur => ur.RoleId).ToList()
                         : new List<int>()
                 })
-                .ToList();
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
-            return Ok(employees);
+            var totalCount = await _context.Employees.CountAsync();
+
+            return Ok(new
+            {
+                employees,
+                pagination = new
+                {
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                }
+            });
         }
 
       
@@ -242,7 +259,7 @@ namespace HRMS_Backend.Controllers
         // ==================== My Profile ====================
         [HttpGet("my-profile")]
         [Authorize]
-        public IActionResult GetMyProfile()
+        public async Task<IActionResult> GetMyProfile()
         {
             var username = User.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
             var employeeIdClaim = User.Claims.FirstOrDefault(c => c.Type == "EmployeeId")?.Value;
@@ -252,9 +269,9 @@ namespace HRMS_Backend.Controllers
 
             int employeeId = int.Parse(employeeIdClaim);
 
-            var employee = _context.Employees
+            var employee = await _context.Employees
                 .Include(e => e.User)
-                .FirstOrDefault(e => e.Id == employeeId);
+                .FirstOrDefaultAsync(e => e.Id == employeeId);
 
             if (employee == null)
                 return NotFound("الموظف غير موجود");
@@ -265,9 +282,9 @@ namespace HRMS_Backend.Controllers
                 photoUrl = $"{Request.Scheme}://{Request.Host}/{employee.PhotoPath.Replace("\\", "/")}";
             }
 
-            var adminData = _context.EmployeeAdministrativeDatas
+            var adminData = await _context.EmployeeAdministrativeDatas
                 .Include(a => a.Department)
-                .FirstOrDefault(a => a.EmployeeId == employee.Id);
+                .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id);
 
             var result = new
             {
@@ -281,34 +298,117 @@ namespace HRMS_Backend.Controllers
             return Ok(result);
         }
 
-        [HasPermission("AssignRole")]
-        [HttpPost("add-role")]
-        public IActionResult AddRoleToEmployee(int employeeId, int roleId)
+        // ==================== Full Profile (بياناتي) ====================
+        [HttpGet("full-profile")]
+        [Authorize]
+        public async Task<IActionResult> GetFullProfile()
         {
-            var employee = _context.Employees
-                .Include(e => e.User)
-                .ThenInclude(u => u.UserRoles)
-                .FirstOrDefault(e => e.Id == employeeId);
-
-            if (employee == null) return NotFound("الموظف غير موجود");
-            if (employee.User == null) return BadRequest("الموظف لا يملك حساب");
-
-            if (!_context.Roles.Any(r => r.Id == roleId)) return NotFound("الدور غير موجود");
-
-            var existingRole = employee.User.UserRoles.FirstOrDefault(ur => ur.RoleId == roleId);
-            if (existingRole != null)
+            var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out int employeeId))
             {
-                // رسالة خاصة للدور 6
-                if (roleId == 6)
-                    return BadRequest("الموظف لديه بالفعل الدور الافتراضي (موظف)");
-                else
-                    return BadRequest("هذا الدور مضاف مسبقاً");
+                return Unauthorized("فشل التحقق من هوية الموظف");
             }
 
-            employee.User.UserRoles.Add(new UserRole { UserId = employee.User.Id, RoleId = roleId });
-            _context.SaveChanges();
+            try
+            {
+                // 1. البيانات الشخصية
+                var employee = await _context.Employees
+                    .AsNoTracking()
+                    .Include(e => e.MaritalStatus)
+                    .Include(e => e.User)
+                    .FirstOrDefaultAsync(e => e.Id == employeeId);
 
-            return Ok(new { message = "تم إضافة الدور بنجاح" });
+                if (employee == null)
+                    return NotFound("الموظف غير موجود");
+
+                // 2. البيانات الوظيفية والإدارية
+                var adminData = await _context.EmployeeAdministrativeDatas
+                    .AsNoTracking()
+                    .Include(a => a.JobTitle)
+                    .Include(a => a.Department)
+                    .Include(a => a.SubDepartment)
+                    .Include(a => a.Section)
+                    .Include(a => a.WorkLocation)
+                    .Include(a => a.JobGrade)
+                    .FirstOrDefaultAsync(a => a.EmployeeId == employeeId);
+
+                // 3. المؤهلات العلمية
+                var educations = await _context.EmployeeEducations
+                    .AsNoTracking()
+                    .Include(e => e.Qualification)
+                    .Where(e => e.EmployeeId == employeeId)
+                    .OrderByDescending(e => e.CreatedAt)
+                    .ToListAsync();
+
+                // 4. تجهيز روابط الصور
+                string? photoUrl = null;
+                if (!string.IsNullOrEmpty(employee.PhotoPath))
+                {
+                    photoUrl = $"{Request.Scheme}://{Request.Host}/{employee.PhotoPath.Replace("\\", "/")}";
+                }
+
+                // 5. بناء الـ Response المنظم
+                var result = new
+                {
+                    personalInfo = new
+                    {
+                        employee.Id,
+                        employee.PublicId,
+                        employee.EmployeeNumber,
+                        employee.FullName,
+                        employee.Email,
+                        employee.Phone1,
+                        employee.Phone2,
+                        employee.MotherName,
+                        employee.NationalId,
+                        BirthDate = employee.BirthDate.ToString("yyyy-MM-dd"),
+                        employee.Gender,
+                        MaritalStatus = employee.MaritalStatus?.Name,
+                        PhotoUrl = photoUrl
+                    },
+                    administrativeInfo = new
+                    {
+                        JobTitle = adminData?.JobTitle?.Name,
+                        Department = adminData?.Department?.Name,
+                        SubDepartment = adminData?.SubDepartment?.Name,
+                        Section = adminData?.Section?.Name,
+                        WorkLocation = adminData?.WorkLocation?.Name,
+                        JobGrade = adminData?.JobGrade?.Name,
+                        JobStatus = adminData?.JobStatus.ToString(),
+                        adminData?.LeaveBalance,
+                        StartWorkDate = adminData?.StartWorkDate.ToString("yyyy-MM-dd"),
+                        ContractStartDate = adminData?.ContractStartDate?.ToString("yyyy-MM-dd"),
+                        ContractEndDate = adminData?.ContractEndDate?.ToString("yyyy-MM-dd"),
+                        AppointmentDate = adminData?.AppointmentDate?.ToString("yyyy-MM-dd"),
+                        // بيانات الانتداب والإعارة
+                        adminData?.TransferType,
+                        TransferFromOrganization = adminData?.TransferFromOrganization?.Name,
+                        TransferStartDate = adminData?.TransferStartDate?.ToString("yyyy-MM-dd"),
+                        TransferEndDate = adminData?.TransferEndDate?.ToString("yyyy-MM-dd"),
+                        SecondmentToOrganization = adminData?.SecondmentToOrganization?.Name,
+                        SecondmentStartDate = adminData?.SecondmentStartDate?.ToString("yyyy-MM-dd"),
+                        SecondmentEndDate = adminData?.SecondmentEndDate?.ToString("yyyy-MM-dd")
+                    },
+                    education = educations.Select(e => new
+                    {
+                        e.Id,
+                        QualificationName = e.Qualification?.Name,
+                        e.Qualification?.Level,
+                        e.Type,
+                        e.Institution,
+                        CreatedAt = e.CreatedAt.ToString("yyyy-MM-dd"),
+                        FileUrl = !string.IsNullOrEmpty(e.FilePath) 
+                            ? $"{Request.Scheme}://{Request.Host}/{e.FilePath.Replace("\\", "/")}" 
+                            : null
+                    }).ToList()
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "حدث خطأ في الخادم", details = ex.Message });
+            }
         }
 
         // ==================== تعديل Profile + User Roles ====================

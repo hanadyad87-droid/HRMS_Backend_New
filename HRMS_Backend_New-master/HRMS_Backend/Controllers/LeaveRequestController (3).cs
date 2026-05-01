@@ -286,11 +286,13 @@ namespace HRMS_Backend.Controllers
         }
 
         // ==========================================
-        // MY LEAVE REQUESTS (موظف — تطبيق الموبايل)
+        // MY LEAVE REQUESTS (موظف — تطبيق الموبايل) مع Pagination
         // ==========================================
         [Authorize]
         [HttpGet("my-requests")]
-        public async Task<IActionResult> GetMyRequests()
+        public async Task<IActionResult> GetMyRequests(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             var userId = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
             if (userId == 0)
@@ -307,11 +309,18 @@ namespace HRMS_Backend.Controllers
 
             var balance = admin?.LeaveBalance ?? 0;
 
-            var list = await _context.LeaveRequests
+            // Pagination query
+            var query = _context.LeaveRequests
                 .AsNoTracking()
                 .Include(l => l.LeaveType)
                 .Where(l => l.EmployeeId == employee.Id)
-                .OrderByDescending(l => l.Id)
+                .OrderByDescending(l => l.Id);
+
+            var totalCount = await query.CountAsync();
+
+            var list = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             var requests = list.Select(l => new
@@ -329,7 +338,14 @@ namespace HRMS_Backend.Controllers
                 attachmentPath = l.AttachmentPath
             }).ToList();
 
-            return Ok(new { requests, balance });
+            return Ok(new {
+                requests,
+                balance,
+                totalCount,
+                page,
+                pageSize,
+                totalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            });
         }
 
         private static LeaveApprovalFlow EffectiveFlow(LeaveRequest leave)

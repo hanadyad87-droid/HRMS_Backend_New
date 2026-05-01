@@ -84,14 +84,15 @@ namespace HRMS_Backend.Controllers
             string? attachmentPath = null;
             if (dto.File != null)
             {
-                var allowedExtensions = new[] { ".pdf", ".png", ".jpeg", ".jpg" };
+                var allowedExtensions = new[] { ".pdf", ".png", ".jpeg", ".jpg", ".gif", ".bmp", ".webp", ".doc", ".docx", ".xls", ".xlsx", ".txt" };
                 var ext = Path.GetExtension(dto.File.FileName).ToLower();
                 if (!allowedExtensions.Contains(ext))
-                    return BadRequest("نوع الملف غير مسموح");
+                    return BadRequest($"نوع الملف غير مسموح. الامتداد المسموح به: {ext}");
 
-                var allowedMimeTypes = new[] { "application/pdf", "image/png", "image/jpeg" };
-                if (!allowedMimeTypes.Contains(dto.File.ContentType.ToLower()))
-                    return BadRequest("نوع الملف غير مسموح");
+                // نتجاهل التحقق من MIME Type لأن Flutter قد يرسل قيمة generic
+                // var allowedMimeTypes = new[] { "application/pdf", "image/png", "image/jpeg", "image/gif", "image/bmp", "image/webp", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain" };
+                // if (!allowedMimeTypes.Contains(dto.File.ContentType.ToLower()))
+                //     return BadRequest($"نوع MIME غير مسموح: {dto.File.ContentType}");
 
                 var folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "attachments");
                 if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);

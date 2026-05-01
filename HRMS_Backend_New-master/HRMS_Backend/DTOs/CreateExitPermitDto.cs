@@ -1,5 +1,4 @@
-﻿using HRMS_Backend.Enums;
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace HRMS_Backend.DTOs.ExitPermits
@@ -7,13 +6,16 @@ namespace HRMS_Backend.DTOs.ExitPermits
     public class CreateExitPermitDto
     {
         [Required]
-        public ExitPermitType PermitType { get; set; }
+        public string PermitType { get; set; } // "0"=عاجل, "1"=شخصي, "2"=طبي
 
         [Required]
         public DateTime PermitDate { get; set; }
 
         [Required]
-        public TimeSpan PermitTime { get; set; }
+        public string FromTime { get; set; } // HH:mm - وقت الخروج
+
+        [Required]
+        public string ToTime { get; set; } // HH:mm - وقت العودة
 
         [Required]
         public string Reason { get; set; }

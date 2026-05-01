@@ -32,12 +32,33 @@ namespace HRMS_Backend.Controllers
 
             if (employee == null) return NotFound("الموظف غير موجود");
 
+            // تحويل الرقم لنص مقروء
+            int permitTypeValue = int.TryParse(dto.PermitType, out int parsed) ? parsed : 0;
+            string permitTypeText = permitTypeValue switch
+            {
+                0 => "خروج عاجل",
+                1 => "خروج شخصي",
+                2 => "خروج طبي",
+                _ => "خروج"
+            };
+
+            // تحويل الوقت من string "HH:mm" لـ TimeSpan
+            var fromParts = dto.FromTime.Split(':');
+            var toParts = dto.ToTime.Split(':');
+            var fromTimeSpan = new TimeSpan(int.Parse(fromParts[0]), int.Parse(fromParts[1]), 0);
+            var toTimeSpan = new TimeSpan(int.Parse(toParts[0]), int.Parse(toParts[1]), 0);
+
+            // التحقق من أن وقت العودة بعد وقت الخروج
+            if (toTimeSpan <= fromTimeSpan)
+                return BadRequest("وقت العودة يجب أن يكون بعد وقت الخروج");
+
             var request = new ExitPermitRequest
             {
                 EmployeeId = employee.Id,
-                PermitType = dto.PermitType.ToString().Replace("_", " "),
+                PermitType = permitTypeText,
                 PermitDate = dto.PermitDate,
-                PermitTime = dto.PermitTime,
+                FromTime = fromTimeSpan,
+                ToTime = toTimeSpan,
                 Reason = dto.Reason,
                 Status = "قيد_الانتظار"
             };
@@ -71,20 +92,44 @@ namespace HRMS_Backend.Controllers
             return Ok(requests);
         }
 
-        // 3. طلبات الموظف
+        // 3. طلبات الموظف مع Pagination
         [HttpGet("my-requests")]
-        public async Task<IActionResult> GetMyRequests()
+        public async Task<IActionResult> GetMyRequests(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             var userId = int.Parse(User.FindFirstValue("UserId"));
             var employee = await _context.Employees.FirstOrDefaultAsync(e => e.UserId == userId);
             if (employee == null) return NotFound("الموظف غير موجود");
 
-            var myRequests = await _context.ExitPermitRequests
+            // Pagination + Projection للأداء
+            var query = _context.ExitPermitRequests
                 .Where(r => r.EmployeeId == employee.Id)
-                .OrderByDescending(r => r.Id)
+                .OrderByDescending(r => r.Id);
+
+            var totalCount = await query.CountAsync();
+            var myRequests = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(r => new {
+                    r.Id,
+                    r.PermitType,
+                    r.PermitDate,
+                    r.FromTime,
+                    r.ToTime,
+                    r.Reason,
+                    r.Status,
+                    r.CreatedAt
+                })
                 .ToListAsync();
 
-            return Ok(myRequests);
+            return Ok(new {
+                Data = myRequests,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            });
         }
 
         // 4. قرار المدير

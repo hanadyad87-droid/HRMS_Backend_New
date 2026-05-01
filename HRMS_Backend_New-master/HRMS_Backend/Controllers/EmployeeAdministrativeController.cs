@@ -28,16 +28,16 @@ namespace HRMS_Backend.Controllers
         // =========================
         [HttpPost]
         [HasPermission("AddEmployee")]
-        public IActionResult Add(CreateEmployeeAdministrativeDto dto)
+        public async Task<IActionResult> Add(CreateEmployeeAdministrativeDto dto)
         {
-            var employee = _context.Employees
-                .FirstOrDefault(e => e.PublicId == dto.EmployeePublicId);
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.PublicId == dto.EmployeePublicId);
 
             if (employee == null)
                 return NotFound("الموظف غير موجود");
 
-            var existing = _context.EmployeeAdministrativeDatas
-                .FirstOrDefault(a => a.EmployeeId == employee.Id);
+            var existing = await _context.EmployeeAdministrativeDatas
+                .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id);
 
             if (existing != null)
                 return BadRequest("الموظف لديه بيانات إدارية موجودة بالفعل");
@@ -75,7 +75,7 @@ namespace HRMS_Backend.Controllers
             };
 
             _context.EmployeeAdministrativeDatas.Add(data);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok(new
             {
@@ -93,29 +93,29 @@ namespace HRMS_Backend.Controllers
         [HttpGet("my-data")]
         [Authorize]
         [HasPermission("ViewEmployee")]
-        public IActionResult GetMyAdministrativeData()
+        public async Task<IActionResult> GetMyAdministrativeData()
         {
             var username = User.Identity!.Name;
 
-            var employee = _context.Employees
+            var employee = await _context.Employees
                 .Include(e => e.User)
                 .Include(e => e.AdministrativeData)
                     .ThenInclude(a => a.TransferFromOrganization)
                 .Include(e => e.AdministrativeData)
                     .ThenInclude(a => a.SecondmentToOrganization)
-                .FirstOrDefault(e => e.User.Username == username);
+                .FirstOrDefaultAsync(e => e.User.Username == username);
 
             if (employee == null || employee.AdministrativeData == null)
                 return NotFound("الموظف غير موجود أو لا توجد بيانات إدارية");
 
             var a = employee.AdministrativeData;
 
-            _context.Entry(a).Reference(x => x.JobTitle).Load();
-            _context.Entry(a).Reference(x => x.Department).Load();
-            _context.Entry(a).Reference(x => x.SubDepartment).Load();
-            _context.Entry(a).Reference(x => x.Section).Load();
-            _context.Entry(a).Reference(x => x.WorkLocation).Load();
-            _context.Entry(a).Reference(x => x.JobGrade).Load();
+            await _context.Entry(a).Reference(x => x.JobTitle).LoadAsync();
+            await _context.Entry(a).Reference(x => x.Department).LoadAsync();
+            await _context.Entry(a).Reference(x => x.SubDepartment).LoadAsync();
+            await _context.Entry(a).Reference(x => x.Section).LoadAsync();
+            await _context.Entry(a).Reference(x => x.WorkLocation).LoadAsync();
+            await _context.Entry(a).Reference(x => x.JobGrade).LoadAsync();
 
             return Ok(new
             {
@@ -151,9 +151,9 @@ namespace HRMS_Backend.Controllers
         // =========================
         [HttpGet("get-all")]
         [HasPermission("ViewEmployee")]
-        public IActionResult GetAllAdministrativeData()
+        public async Task<IActionResult> GetAllAdministrativeData()
         {
-            var data = _context.EmployeeAdministrativeDatas
+            var data = await _context.EmployeeAdministrativeDatas
                 .Include(a => a.Employee)
                 .Include(a => a.JobTitle)
                 .Include(a => a.Department)
@@ -187,7 +187,7 @@ namespace HRMS_Backend.Controllers
                     a.SecondmentStartDate,
                     a.SecondmentEndDate
                 })
-                .ToList();
+                .ToListAsync();
 
             return Ok(data);
         }
@@ -197,9 +197,9 @@ namespace HRMS_Backend.Controllers
         // =========================
         [HttpGet("by-publicid/{publicId}")]
         [HasPermission("ViewEmployee")]
-        public IActionResult GetByEmployeePublicId(Guid publicId)
+        public async Task<IActionResult> GetByEmployeePublicId(Guid publicId)
         {
-            var a = _context.EmployeeAdministrativeDatas
+            var a = await _context.EmployeeAdministrativeDatas
                 .Include(x => x.Employee)
                 .Include(x => x.JobTitle)
                 .Include(x => x.Department)
@@ -209,7 +209,7 @@ namespace HRMS_Backend.Controllers
                 .Include(x => x.JobGrade)
                 .Include(x => x.TransferFromOrganization)
                 .Include(x => x.SecondmentToOrganization)
-                .FirstOrDefault(x => x.Employee.PublicId == publicId);
+                .FirstOrDefaultAsync(x => x.Employee.PublicId == publicId);
 
             if (a == null)
                 return NotFound("لا توجد بيانات إدارية لهذا الموظف");
@@ -259,10 +259,10 @@ namespace HRMS_Backend.Controllers
         // =========================
         [HttpPut("{publicId}")]
         [HasPermission("EditEmployee")]
-        public IActionResult Update(Guid publicId, CreateEmployeeAdministrativeDto dto)
+        public async Task<IActionResult> Update(Guid publicId, CreateEmployeeAdministrativeDto dto)
         {
-            var a = _context.EmployeeAdministrativeDatas
-                .FirstOrDefault(x => x.Employee.PublicId == publicId);
+            var a = await _context.EmployeeAdministrativeDatas
+                .FirstOrDefaultAsync(x => x.Employee.PublicId == publicId);
             if (a == null)
                 return NotFound("البيانات الإدارية غير موجودة");
 
@@ -290,7 +290,7 @@ namespace HRMS_Backend.Controllers
             a.SecondmentStartDate = dto.SecondmentStartDate;
             a.SecondmentEndDate = dto.SecondmentEndDate;
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return Ok("تم تحديث البيانات الإدارية بنجاح");
         }
 
@@ -299,15 +299,15 @@ namespace HRMS_Backend.Controllers
         // =========================
         [HttpDelete("{publicId}")]
         [HasPermission("DeleteEmployee")]
-        public IActionResult Delete(Guid publicId)
+        public async Task<IActionResult> Delete(Guid publicId)
         {
-            var a = _context.EmployeeAdministrativeDatas
-                .FirstOrDefault(x => x.Employee.PublicId == publicId);
+            var a = await _context.EmployeeAdministrativeDatas
+                .FirstOrDefaultAsync(x => x.Employee.PublicId == publicId);
             if (a == null)
                 return NotFound("البيانات الإدارية غير موجودة");
 
             _context.EmployeeAdministrativeDatas.Remove(a);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok("تم حذف البيانات الإدارية");
         }
