@@ -284,27 +284,30 @@ namespace HRMS_Backend.Controllers
 
             var today = DateTime.Now;
 
-            var data = await _context.ManagerDelegations
-                .Include(d => d.ActingManager)
-                .Include(d => d.OriginalManager)
-                .Include(d => d.AssignedBy)
-                .Where(d =>
-                    allowedEmployeeIds.Contains(d.ActingManagerId) ||
-                    allowedEmployeeIds.Contains(d.OriginalManagerId))
+            var delegations = await _context.ManagerDelegations
+      .Include(d => d.ActingManager)
+      .Include(d => d.OriginalManager)
+      .Include(d => d.AssignedBy)
+      .Where(d =>
+          allowedEmployeeIds.Contains(d.ActingManagerId) ||
+          allowedEmployeeIds.Contains(d.OriginalManagerId))
+      .ToListAsync(); // 👈 هنا التنفيذ
+
+            var data = delegations
                 .Select(d => new DelegationReportDto
                 {
-                    ActingManager = d.ActingManager.FullName ?? "غير معروف",
-                    OriginalManager = d.OriginalManager.FullName ?? "غير معروف",
-                    AssignedBy = d.AssignedBy.FullName ?? "غير معروف",
+                    ActingManager = d.ActingManager?.FullName ?? "غير معروف",
+                    OriginalManager = d.OriginalManager?.FullName ?? "غير معروف",
+                    AssignedBy = d.AssignedBy?.FullName ?? "غير معروف",
                     EntityType = d.EntityType,
-                    EntityName = GetEntityName(d.EntityType, d.EntityId),
+                    EntityName = GetEntityName(d.EntityType, d.EntityId), // 👈 توّا عادي
                     StartDate = d.StartDate,
                     EndDate = d.EndDate,
-                    Status = (d.IsActive && (d.EndDate == null || d.EndDate >= today))
+                    Status = (d.IsActive && (d.EndDate == null || d.EndDate >= DateTime.Now))
                         ? "نشط"
                         : "منتهي"
                 })
-                .ToListAsync();
+                .ToList();
 
             return Ok(data);
         }
