@@ -15,7 +15,30 @@ namespace HRMS_Backend.Models
         [Required]
         public string Purpose { get; set; } // الغرض من الشهادة (مثلاً: تقديمها للمصرف)
 
-        public string Status { get; set; } = "قيد_الانتظار"; // قيد_الانتظار، جاهزة، مرفوض
+        // الحالات: قيد_الانتظار، قيد_التنفيذ، في_انتظار_المصادقة، تمت_العملية، مرفوض
+        public string Status { get; set; } = "قيد_الانتظار";
+
+        // من استلم الطلب (أول حد عنده صلاحية ياخذه)
+        public int? ClaimedByEmployeeId { get; set; }
+        [ForeignKey("ClaimedByEmployeeId")]
+        public Employee? ClaimedBy { get; set; }
+
+        // متى تم الاستلام
+        public DateTime? ClaimedAt { get; set; }
+
+        // من كلف بالتنفيذ (ممكن يكون نفس اللي استلم أو موظف تحته)
+        public int? AssignedToEmployeeId { get; set; }
+        [ForeignKey("AssignedToEmployeeId")]
+        public Employee? AssignedTo { get; set; }
+
+        // متى تم التنفيذ
+        public DateTime? CompletedAt { get; set; }
+
+        // ملاحظات التنفيذ
+        public string? CompletionNotes { get; set; }
+
+        // متى تمت المصادقة من صاحب الطلب
+        public DateTime? VerifiedAt { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

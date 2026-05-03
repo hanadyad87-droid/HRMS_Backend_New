@@ -235,6 +235,19 @@ namespace HRMS_Backend.Data
                 .HasForeignKey(e => e.DelegatedGradeId)
                 .OnDelete(DeleteBehavior.NoAction); // <--- بدل Cascade
 
+            // تحديد دقة Decimal لـ EmployeeFinancialData
+            modelBuilder.Entity<EmployeeFinancialData>()
+                .Property(e => e.BasicSalary)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<EmployeeFinancialData>()
+                .Property(e => e.Allowance)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<EmployeeFinancialData>()
+                .Property(e => e.CurrentLinkedSalary)
+                .HasPrecision(18, 2);
+
             //--------ريماز------//
 
             modelBuilder.Entity<subDepartment>(entity =>
@@ -315,6 +328,65 @@ namespace HRMS_Backend.Data
                       .HasDefaultValue(ComplaintStatus.تحت_المراجعة); // القيمة الافتراضية عند إنشاء شكوى
             });
 
+            // ================= Request Models Relationships =================
+
+            // MaintenanceRequest
+            modelBuilder.Entity<MaintenanceRequest>(entity =>
+            {
+                entity.HasOne(r => r.Employee)
+                      .WithMany()
+                      .HasForeignKey(r => r.EmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.ClaimedBy)
+                      .WithMany()
+                      .HasForeignKey(r => r.ClaimedByEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.AssignedTo)
+                      .WithMany()
+                      .HasForeignKey(r => r.AssignedToEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // SalaryCertificateRequest
+            modelBuilder.Entity<SalaryCertificateRequest>(entity =>
+            {
+                entity.HasOne(r => r.Employee)
+                      .WithMany()
+                      .HasForeignKey(r => r.EmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.ClaimedBy)
+                      .WithMany()
+                      .HasForeignKey(r => r.ClaimedByEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.AssignedTo)
+                      .WithMany()
+                      .HasForeignKey(r => r.AssignedToEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // DataUpdateRequest
+            modelBuilder.Entity<DataUpdateRequest>(entity =>
+            {
+                entity.HasOne(r => r.Employee)
+                      .WithMany()
+                      .HasForeignKey(r => r.EmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.ClaimedBy)
+                      .WithMany()
+                      .HasForeignKey(r => r.ClaimedByEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.AssignedTo)
+                      .WithMany()
+                      .HasForeignKey(r => r.AssignedToEmployeeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
             // ====================== Seeding ======================
 
             // MaritalStatus
@@ -387,7 +459,7 @@ namespace HRMS_Backend.Data
                 new Permission { Id = 13, PermissionName = "ManageEmployeeEducation" },
                 new Permission { Id = 14, PermissionName = "AssignRole" },
                 new Permission { Id = 15, PermissionName = "ManageMaintenance" }, // لتقنية المعلومات
-new Permission { Id = 16, PermissionName = "ManageSalaryCertificates" }, // للمالية
+new Permission { Id = 16, PermissionName = "ManageSalaryCertificates" }, 
 new Permission { Id = 17, PermissionName = "ManageExitPermits" }, // للـ HR
 new Permission { Id = 18, PermissionName = "ManageDataUpdates" } ,// للـ HR
 new Permission { Id = 19, PermissionName = "ManageForms" } ,// لإدارة النماذج والقوالب

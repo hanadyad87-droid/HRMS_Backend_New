@@ -8,6 +8,11 @@ namespace HRMS_Backend.Services
     {
         Task NotifyEmployeeAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// إرسال إشعار مع نوع محدد ومعرف الطلب (للتنقل في التطبيق)
+        /// </summary>
+        Task NotifyEmployeeWithTypeAsync(int employeeId, string title, string message, string type, int? requestId = null, CancellationToken cancellationToken = default);
+
         /// <summary>يحوّل User.Id إلى Employee.Id عند وجود موظف مرتبط؛ وإلا يحفظ بالـ userId دون WebSocket.</summary>
         Task NotifyUserAsync(int userId, string title, string message, CancellationToken cancellationToken = default);
     }

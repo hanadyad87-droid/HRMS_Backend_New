@@ -19,7 +19,12 @@ builder.Services.AddSignalR();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 // 1. إعداد قاعدة البيانات
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 // 2. إعداد الـ Controllers مع دعم الـ Enum في JSON
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -110,6 +115,8 @@ if (corsOrigins == null || corsOrigins.Length == 0)
         "http://127.0.0.1:8080",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://10.50.9.200:5205",
+        "http://10.50.9.200:8080",
     ];
 }
 

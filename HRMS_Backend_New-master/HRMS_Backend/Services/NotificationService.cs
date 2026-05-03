@@ -24,6 +24,11 @@ namespace HRMS_Backend.Services
 
         public async Task NotifyEmployeeAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default)
         {
+            await NotifyEmployeeWithTypeAsync(employeeId, title, message, "general", null, cancellationToken);
+        }
+
+        public async Task NotifyEmployeeWithTypeAsync(int employeeId, string title, string message, string type, int? requestId = null, CancellationToken cancellationToken = default)
+        {
             var notification = new Notification
             {
                 UserId = employeeId,
@@ -46,15 +51,22 @@ namespace HRMS_Backend.Services
                         title = notification.Title,
                         message = notification.Message,
                         createdAt = notification.CreatedAt,
-                        isRead = notification.IsRead
+                        isRead = notification.IsRead,
+                        type,
+                        requestId
                     },
                     cancellationToken);
 
             // إرسال إشعار عبر Firebase Cloud Messaging (FCM)
-            await SendFirebasePushNotificationAsync(employeeId, title, message, cancellationToken);
+            await SendFirebasePushNotificationWithTypeAsync(employeeId, title, message, type, requestId, cancellationToken);
         }
 
         private async Task SendFirebasePushNotificationAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default)
+        {
+            await SendFirebasePushNotificationWithTypeAsync(employeeId, title, message, "general", null, cancellationToken);
+        }
+
+        private async Task SendFirebasePushNotificationWithTypeAsync(int employeeId, string title, string message, string type, int? requestId, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -75,7 +87,8 @@ namespace HRMS_Backend.Services
                 var data = new Dictionary<string, string>
                 {
                     { "notificationId", DateTime.Now.Ticks.ToString() },
-                    { "type", "general" }
+                    { "type", type },
+                    { "requestId", requestId?.ToString() ?? "" }
                 };
 
                 await _fcmService.SendNotificationAsync(fcmToken, title, message, data, cancellationToken);
