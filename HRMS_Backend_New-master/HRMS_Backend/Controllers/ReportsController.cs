@@ -256,19 +256,19 @@ namespace HRMS_Backend.Controllers
                 .Select(e => e.Id)
                 .ToListAsync();
             Console.WriteLine(string.Join(",", allowedEmployeeIds));
-       var data = await _context.TaskAssignments
-    .Include(t => t.Employee)
-    .Where(t => t.Employee != null)
-    .ToListAsync();
+            var data = await _context.TaskAssignments
+         .Include(t => t.Employee)
+         .Where(t => t.Employee != null)
+         .ToListAsync();
 
-       var result = data
-    .GroupBy(t => t.Employee.FullName)
-    .Select(g => new
-    {
-        Employee = g.Key,
-        Count = g.Count(),
-    })
-    .ToList();
+            var result = data
+         .GroupBy(t => t.Employee.FullName)
+         .Select(g => new
+         {
+             Employee = g.Key,
+             Count = g.Count(),
+         })
+         .ToList();
 
             return Ok(result);
         }
