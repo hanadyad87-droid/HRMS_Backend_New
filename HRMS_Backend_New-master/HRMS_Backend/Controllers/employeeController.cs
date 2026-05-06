@@ -254,7 +254,79 @@ namespace HRMS_Backend.Controllers
             });
         }
 
-      
+        // ==================== جلب الموظفين حسب قسم المستخدم الحالي ====================
+        [HttpGet("by-my-department")]
+        [Authorize]
+        public async Task<IActionResult> GetEmployeesByMyDepartment()
+        {
+            var employeeIdClaim = User.Claims.FirstOrDefault(c => c.Type == "EmployeeId")?.Value;
+            if (!int.TryParse(employeeIdClaim, out int currentEmployeeId))
+                return Unauthorized("فشل التحقق من الهوية");
+
+            var currentEmp = await _context.Employees
+                .Include(e => e.AdministrativeData)
+                .FirstOrDefaultAsync(e => e.Id == currentEmployeeId);
+
+            if (currentEmp == null) return Unauthorized("الموظف غير موجود");
+
+            // تحديد SubDepartment للمستخدم الحالي
+            int? userSubDeptId = null;
+
+            // 1. التحقق إذا كان مدير إدارة فرعية
+            var managedSubDept = await _context.SubDepartments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ManagerEmployeeId == currentEmployeeId);
+            if (managedSubDept != null)
+            {
+                userSubDeptId = managedSubDept.Id;
+            }
+            else
+            {
+                // 2. التحقق إذا كان مدير قسم
+                var managedSection = await _context.Sections
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.ManagerEmployeeId == currentEmployeeId);
+                if (managedSection != null)
+                {
+                    userSubDeptId = managedSection.SubDepartmentId;
+                }
+                else
+                {
+                    // 3. التحقق إذا كان مدير إدارة عامة (يرجع أول إدارة فرعية تحتها)
+                    var managedDept = await _context.Departments
+                        .AsNoTracking()
+                        .Include(d => d.SubDepartments)
+                        .FirstOrDefaultAsync(d => d.ManagerEmployeeId == currentEmployeeId);
+                    if (managedDept != null && managedDept.SubDepartments.Any())
+                    {
+                        userSubDeptId = managedDept.SubDepartments.First().Id;
+                    }
+                    else
+                    {
+                        // 4. موظف عادي - من AdministrativeData
+                        userSubDeptId = currentEmp.AdministrativeData?.SubDepartmentId;
+                    }
+                }
+            }
+
+            if (userSubDeptId == null)
+                return Ok(new { employees = new List<object>() });
+
+            // جلب الموظفين في نفس القسم
+            var employees = await _context.EmployeeAdministrativeDatas
+                .Include(a => a.Employee)
+                .Where(a => a.SubDepartmentId == userSubDeptId && a.EmployeeId != currentEmployeeId)
+                .Select(a => new
+                {
+                    a.Employee.Id,
+                    a.Employee.FullName,
+                    a.Employee.EmployeeNumber
+                })
+                .OrderBy(e => e.FullName)
+                .ToListAsync();
+
+            return Ok(new { employees });
+        }
 
         // ==================== My Profile ====================
         [HttpGet("my-profile")]

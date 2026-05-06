@@ -104,15 +104,44 @@ namespace HRMS_Backend.Controllers
 
             var isSuperAdmin = User.IsInRole("SuperAdmin");
 
-            // يكفي ان المدير يكون في القسم المستهدف OR عنده صلاحية الإدارة
-            if (!isSuperAdmin && !isInTargetDept && !hasPermission)
-                return Forbid();
+            // ✅ لو مش مسؤول/مش عنده صلاحية: نسمح له فقط برؤية الطلبات المُكلَّف بها (وليس كل الطلبات)
+            var targetSubDept = targetSubDeptId.HasValue
+                ? await _context.SubDepartments.AsNoTracking().FirstOrDefaultAsync(s => s.Id == targetSubDeptId.Value)
+                : null;
 
-            var requests = await _context.DataUpdateRequests
+            var isManagerOfTarget =
+                (targetSubDeptId.HasValue && await _context.SubDepartments.AsNoTracking()
+                    .AnyAsync(s => s.Id == targetSubDeptId.Value && s.ManagerEmployeeId == currentEmp.Id))
+                || (targetSubDeptId.HasValue && await _context.Sections.AsNoTracking()
+                    .AnyAsync(s => s.SubDepartmentId == targetSubDeptId.Value && s.ManagerEmployeeId == currentEmp.Id))
+                || (targetSubDept != null && await _context.Departments.AsNoTracking()
+                    .AnyAsync(d => d.Id == targetSubDept.DepartmentId && d.ManagerEmployeeId == currentEmp.Id));
+
+            // ملاحظة: مجرد كون الموظف "داخل القسم" لا يعطيه حق الإدارة.
+            _ = isInTargetDept;
+
+            var canManage = isSuperAdmin || hasPermission || isManagerOfTarget;
+
+            var baseQuery = _context.DataUpdateRequests
                 .Include(r => r.Employee)
                 .Include(r => r.ClaimedBy)
                 .Include(r => r.AssignedTo)
-                .Where(r => r.Status == "قيد_الانتظار" || r.Status == "قيد_التنفيذ" || r.Status == "في_انتظار_المصادقة")
+                .Where(r =>
+                    r.Status == "قيد_الانتظار" ||
+                    r.Status == "قيد_التنفيذ" ||
+                    r.Status == "في_انتظار_المصادقة" ||
+                    r.Status == "تمت_العملية")
+                .AsQueryable();
+
+            if (!canManage)
+            {
+                // الموظف يشوف فقط ما كُلّف به، وفي حالات التنفيذ/المصادقة (مش كل القائمة)
+                baseQuery = baseQuery.Where(r =>
+                    r.AssignedToEmployeeId == currentEmp.Id &&
+                    (r.Status == "قيد_التنفيذ" || r.Status == "في_انتظار_المصادقة"));
+            }
+
+            var requests = await baseQuery
                 .OrderByDescending(r => r.Id)
                 .Select(r => new
                 {
@@ -124,14 +153,19 @@ namespace HRMS_Backend.Controllers
                     r.CreatedAt,
                     r.ClaimedAt,
                     r.CompletedAt,
-                    r.ClaimedByEmployeeId,
-                    r.AssignedToEmployeeId,
-                    RequesterName = r.Employee.FullName,
+
+                    Employee = new
+                    {
+                        fullName = r.Employee.FullName,
+                        id = r.Employee.Id
+                    },
+
                     ClaimedByName = r.ClaimedBy != null ? r.ClaimedBy.FullName : null,
                     AssignedToName = r.AssignedTo != null ? r.AssignedTo.FullName : null,
+
                     IsClaimed = r.ClaimedByEmployeeId != null,
                     IsClaimedByMe = r.ClaimedByEmployeeId == currentEmp.Id,
-                    CanClaim = r.ClaimedByEmployeeId == null && r.Status == "قيد_الانتظار"
+                    CanClaim = canManage && r.ClaimedByEmployeeId == null && r.Status == "قيد_الانتظار"
                 })
                 .ToListAsync();
 

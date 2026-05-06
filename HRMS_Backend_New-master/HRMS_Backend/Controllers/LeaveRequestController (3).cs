@@ -329,11 +329,14 @@ namespace HRMS_Backend.Controllers
                 leaveType = l.LeaveType?.اسم_الاجازة ?? "إجازة",
                 fromDate = l.FromDate,
                 toDate = l.ToDate,
+                totalDays = l.TotalDays,
                 status = MapLeaveStatusForMobile(l, admin),
                 rejectionReason = l.سبب_الرفض,
                 waitingFor = DescribeCurrentWaitingStep(l, admin),
                 effectiveFlow = EffectiveRouting(l, admin).ToString(),
                 requiresForm = l.LeaveType?.تحتاج_نموذج ?? false,
+                deductsBalance = l.LeaveType?.مخصومة_من_الرصيد ?? false,
+                isFinalApproved = l.FinalApproval == true,
                 hasAttachment = !string.IsNullOrEmpty(l.AttachmentPath),
                 attachmentPath = l.AttachmentPath
             }).ToList();

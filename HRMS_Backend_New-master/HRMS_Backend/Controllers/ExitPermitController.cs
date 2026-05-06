@@ -82,12 +82,29 @@ namespace HRMS_Backend.Controllers
             if (currentManager == null) return Unauthorized();
 
             var requests = await _context.ExitPermitRequests
-                .Include(r => r.Employee)
-                    .ThenInclude(e => e.AdministrativeData)
-                        .ThenInclude(a => a.Section)
-                .Where(r => r.Status == "قيد_الانتظار" &&
-                            r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentManager.Id)
-                .ToListAsync();
+     .Include(r => r.Employee)
+     .Where(r => r.Status == "قيد_الانتظار" &&
+                 r.Employee.AdministrativeData.Section.ManagerEmployeeId == currentManager.Id)
+     .OrderByDescending(r => r.Id)
+     .Select(r => new
+     {
+         r.Id,
+         r.PermitType,
+         r.PermitDate,
+         r.FromTime,
+         r.ToTime,
+         r.Reason,
+         r.Status,
+
+         Employee = new
+         {
+             id = r.Employee.Id,
+             fullName = r.Employee.FullName
+         },
+
+         ClaimedByName = r.Employee.FullName // لو عندك claim system لاحقاً
+     })
+     .ToListAsync();
 
             return Ok(requests);
         }
