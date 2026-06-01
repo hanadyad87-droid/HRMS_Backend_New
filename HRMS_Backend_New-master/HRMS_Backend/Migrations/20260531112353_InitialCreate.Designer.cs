@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260501230113_AddRequestWorkflowFieldstfdruytri")]
-    partial class AddRequestWorkflowFieldstfdruytri
+    [Migration("20260531112353_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -563,6 +563,7 @@ namespace HRMS_Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Allowance")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("AllowanceDate")
@@ -575,9 +576,11 @@ namespace HRMS_Backend.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("BasicSalary")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("CurrentLinkedSalary")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CurrentLinkedSalaryDate")

@@ -34,42 +34,37 @@ namespace HRMS_Backend.Controllers
             if (_context.Users.Any(u => u.Username == dto.Username))
                 return BadRequest("اسم المستخدم موجود مسبقاً");
 
+            var role = _context.Roles.Find(dto.RoleId);
+            if (role == null)
+                return BadRequest("الدور المحدد غير موجود");
+
             var user = new User
             {
                 Username = dto.Username,
                 PasswordHash = HashPassword(dto.Password)
             };
 
-            var role = _context.Roles.Find(dto.RoleId);
-            if (role != null)
-                user.UserRoles.Add(new UserRole { User = user, Role = role });
+            user.UserRoles.Add(new UserRole { User = user, Role = role });
 
             _context.Users.Add(user);
-            _context.SaveChanges(); // 🔥 مهم جداً (يعطي user.Id)
-
-            // 🔥 إنشاء الصلاحيات
-            var permissions = _context.Permissions.ToList();
-
-            foreach (var perm in permissions)
-            {
-                _context.UserPermissions.Add(new UserPermission
-                {
-                    UserId = user.Id,
-                    PermissionId = perm.Id,
-                    IsAllowed = false,
-                    IsTemporary = false
-                });
-            }
-
             _context.SaveChanges();
+
             _auditService.Log(
-        user.Id,
-        "Register",
-        "User",
-        $"New user created: {user.Username}",
-        HttpContext.Connection.RemoteIpAddress?.ToString()
-    );
-            return Ok(new { user.Id, user.Username });
+                user.Id,
+                "Register",
+                "User",
+                $"New user created: {user.Username}",
+                HttpContext.Connection.RemoteIpAddress?.ToString()
+            );
+
+            return Ok(new
+            {
+                user.Id,
+                user.Username,
+                roleId = role.Id,
+                roleName = role.RoleName,
+                message = "تم إنشاء حساب الدخول بنجاح. لإضافة بيانات موظف استخدم Employee/create-account"
+            });
         }
 
         // -------------------------

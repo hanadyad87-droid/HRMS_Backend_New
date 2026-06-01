@@ -77,7 +77,6 @@ namespace HRMS_Backend.Controllers
         [HttpPost("create-account")]
         public async Task<IActionResult> CreateEmployeeWithAccount([FromForm] CreateEmployeeAccountDto dto)
         {
-            // التحقق من المدخلات الأساسية
             if (string.IsNullOrWhiteSpace(dto.Username))
                 return BadRequest("اسم المستخدم مطلوب");
 
@@ -87,30 +86,23 @@ namespace HRMS_Backend.Controllers
             if (string.IsNullOrWhiteSpace(dto.Phone1))
                 return BadRequest("رقم الهاتف الأساسي مطلوب");
 
-            using var transaction = _context.Database.BeginTransaction();
+            if (dto.Phone1.Length < 4)
+                return BadRequest("رقم الهاتف يجب أن يكون 4 أرقام على الأقل");
 
             try
             {
-                // 1. توليد كلمة مرور تلقائية من قبل النظام
-                // هنا نستخدم كلمة ثابتة للتجربة أو يمكنك استخدام: "User@" + dto.Phone1.Substring(dto.Phone1.Length - 4)
                 string generatedPassword = "User@" + dto.Phone1.Substring(dto.Phone1.Length - 4);
 
-                // 2. إنشاء User
                 var user = new User
                 {
                     Username = dto.Username,
-                    PasswordHash = HashPassword(generatedPassword) // تشفير الكلمة المولدة
+                    PasswordHash = HashPassword(generatedPassword)
                 };
 
-                // إضافة الأدوار الافتراضية
-                user.UserRoles.Add(new UserRole { RoleId = 6 }); // دور موظف عادي
+                user.UserRoles.Add(new UserRole { RoleId = 6 });
                 if (dto.IsHR) user.UserRoles.Add(new UserRole { RoleId = 2 });
                 if (dto.IsSuperAdmin) user.UserRoles.Add(new UserRole { RoleId = 1 });
 
-                _context.Users.Add(user);
-                _context.SaveChanges();
-
-                // 3. معالجة الصورة
                 string? photoPath = null;
                 if (dto.Photo != null && dto.Photo.Length > 0)
                 {
@@ -128,7 +120,6 @@ namespace HRMS_Backend.Controllers
                     photoPath = $"employees/{fileName}";
                 }
 
-                // 4. توليد رقم الموظف تلقائياً
                 var lastEmployee = _context.Employees
                     .OrderByDescending(e => e.Id)
                     .FirstOrDefault();
@@ -138,12 +129,9 @@ namespace HRMS_Backend.Controllers
                 {
                     var lastNumberPart = lastEmployee.EmployeeNumber.Replace("EMP-", "");
                     if (int.TryParse(lastNumberPart, out int lastNum))
-                    {
                         nextNumber = lastNum + 1;
-                    }
                 }
 
-                // 5. إنشاء سجل الموظف
                 var employee = new Employee
                 {
                     PublicId = Guid.NewGuid(),
@@ -154,21 +142,16 @@ namespace HRMS_Backend.Controllers
                     Email = dto.Email,
                     MotherName = dto.MotherName,
                     NationalId = dto.NationalId,
-                    BirthDate = dto.BirthDate,
+                    BirthDate = dto.BirthDate == default ? DateTime.UtcNow : dto.BirthDate,
                     Gender = dto.Gender,
-                    MaritalStatusId = dto.MaritalStatusId,
-                    UserId = user.Id,
+                    MaritalStatusId = dto.MaritalStatusId > 0 ? dto.MaritalStatusId : 1,
+                    User = user,
                     PhotoPath = photoPath
                 };
 
                 _context.Employees.Add(employee);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
 
-                // تثبيت التغييرات في قاعدة البيانات
-                transaction.Commit();
-
-                // 6. إرسال الإيميل (يحتوي على كلمة المرور المولدة)
-                // 6. إرسال الإيميل (يحتوي على كلمة المرور المولدة)
                 try
                 {
                     var subject = "بيانات دخول نظام الموارد البشرية";
@@ -186,10 +169,10 @@ namespace HRMS_Backend.Controllers
                 }
                 catch (Exception emailEx)
                 {
-                    // الحساب تم إنشاؤه، لكن الإيميل فشل
                     return Ok(new
                     {
                         employeeId = employee.Id,
+                        publicId = employee.PublicId,
                         employeeNumber = employee.EmployeeNumber,
                         fullName = employee.FullName,
                         message = "تم إنشاء الحساب، ولكن تعذر إرسال الإيميل.",
@@ -197,7 +180,6 @@ namespace HRMS_Backend.Controllers
                     });
                 }
 
-                // إذا نجح الإيميل
                 return Ok(new
                 {
                     employeeId = employee.Id,
@@ -209,7 +191,6 @@ namespace HRMS_Backend.Controllers
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
                 var innerError = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
                 return BadRequest($"حدث خطأ أثناء الحفظ: {innerError}");
             }
@@ -632,8 +613,6 @@ namespace HRMS_Backend.Controllers
         [HttpPost("assign-role-and-entity")]
         public IActionResult AssignRoleAndEntity([FromBody] AssignRoleAndEntityDto dto)
         {
-            using var transaction = _context.Database.BeginTransaction();
-
             try
             {
                 var employee = _context.Employees
@@ -644,7 +623,6 @@ namespace HRMS_Backend.Controllers
                 if (employee == null || employee.User == null)
                     return NotFound("الموظف غير موجود");
 
-                // ================== 1. إضافة الدور ==================
                 if (!employee.User.UserRoles.Any(r => r.RoleId == dto.RoleId))
                 {
                     employee.User.UserRoles.Add(new UserRole
@@ -653,8 +631,6 @@ namespace HRMS_Backend.Controllers
                         RoleId = dto.RoleId
                     });
                 }
-
-                // ================== 2. تعيين المدير ==================
 
                 if (dto.Type.ToLower() == "department")
                 {
@@ -698,13 +674,11 @@ namespace HRMS_Backend.Controllers
                 }
 
                 _context.SaveChanges();
-                transaction.Commit();
 
                 return Ok("تم التعيين بنجاح");
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
                 return BadRequest("حدث خطأ: " + ex.Message);
             }
         }

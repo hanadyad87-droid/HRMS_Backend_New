@@ -107,16 +107,17 @@ namespace HRMS_Backend.Controllers
         public async Task<IActionResult> CreateAnnouncement([FromBody] AnnouncementDTO dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var announcement = new Announcement
             {
                 Title = dto.Title,
                 Message = dto.Message,
                 TargetAll = dto.TargetAll,
-                TargetDepartmentId = dto.TargetDepartmentId,
+                TargetDepartmentId = dto.TargetAll
+                    ? null
+                    : dto.TargetDepartmentId,
                 ExpiryDate = dto.ExpiryDate,
                 Active = dto.Active,
-                CreatedAt = DateTime.Now // التأكيد على وقت الإنشاء
+                CreatedAt = DateTime.Now
             };
 
             _context.Announcements.Add(announcement);
@@ -146,8 +147,9 @@ namespace HRMS_Backend.Controllers
             announcement.Title = dto.Title;
             announcement.Message = dto.Message;
             announcement.TargetAll = dto.TargetAll;
-            announcement.TargetDepartmentId = dto.TargetDepartmentId;
-            announcement.ExpiryDate = dto.ExpiryDate;
+            announcement.TargetDepartmentId = dto.TargetAll
+                ? null
+                : dto.TargetDepartmentId; announcement.ExpiryDate = dto.ExpiryDate;
             announcement.Active = dto.Active;
 
             await _context.SaveChangesAsync();

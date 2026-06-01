@@ -140,6 +140,19 @@ namespace HRMS_Backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Organizations",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Organizations", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Permissions",
                 columns: table => new
                 {
@@ -244,7 +257,8 @@ namespace HRMS_Backend.Migrations
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     IPAddress = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     OldValues = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    NewValues = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    NewValues = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ChangedColumns = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -342,6 +356,7 @@ namespace HRMS_Backend.Migrations
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     TargetAll = table.Column<bool>(type: "bit", nullable: false),
                     TargetDepartmentId = table.Column<int>(type: "int", nullable: true),
+                    ExpiryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Active = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
@@ -401,6 +416,12 @@ namespace HRMS_Backend.Migrations
                     NewValue = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ClaimedByEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    ClaimedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AssignedToEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletionNotes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    VerifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -415,6 +436,7 @@ namespace HRMS_Backend.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ManagerEmployeeId = table.Column<int>(type: "int", nullable: true),
                     PreviousManagerId = table.Column<int>(type: "int", nullable: true)
                 },
@@ -441,6 +463,7 @@ namespace HRMS_Backend.Migrations
                     MaritalStatusId = table.Column<int>(type: "int", nullable: false),
                     UserId = table.Column<int>(type: "int", nullable: false),
                     PhotoPath = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FcmToken = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     DepartmentId = table.Column<int>(type: "int", nullable: true),
                     EmployeeId = table.Column<int>(type: "int", nullable: true)
@@ -514,12 +537,12 @@ namespace HRMS_Backend.Migrations
                     AccountNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     NewAccountNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     AdministrativeNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    BasicSalary = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    BasicSalary = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     JobGradeId = table.Column<int>(type: "int", nullable: false),
                     JobGradeDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Allowance = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Allowance = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     AllowanceDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CurrentLinkedSalary = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    CurrentLinkedSalary = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     CurrentLinkedSalaryDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     DelegatedGradeId = table.Column<int>(type: "int", nullable: false),
                     DelegatedGradeDate = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -566,7 +589,8 @@ namespace HRMS_Backend.Migrations
                     EmployeeId = table.Column<int>(type: "int", nullable: false),
                     PermitType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     PermitDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    PermitTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    FromTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    ToTime = table.Column<TimeSpan>(type: "time", nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     IsHrNotified = table.Column<bool>(type: "bit", nullable: false),
@@ -595,9 +619,12 @@ namespace HRMS_Backend.Migrations
                     ToDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     TotalDays = table.Column<int>(type: "int", nullable: false),
                     Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Status = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     سبب_الرفض = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ManagerNote = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ApprovalFlow = table.Column<int>(type: "int", nullable: false),
+                    PartialApproval = table.Column<bool>(type: "bit", nullable: true),
+                    FinalApproval = table.Column<bool>(type: "bit", nullable: true),
+                    PartialNote = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FinalNote = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     AttachmentPath = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
@@ -628,17 +655,35 @@ namespace HRMS_Backend.Migrations
                     ProblemDescription = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ImagePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ClaimedByEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    ClaimedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AssignedToEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletionNotes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    VerifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_MaintenanceRequests", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_MaintenanceRequests_Employees_AssignedToEmployeeId",
+                        column: x => x.AssignedToEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_MaintenanceRequests_Employees_ClaimedByEmployeeId",
+                        column: x => x.ClaimedByEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_MaintenanceRequests_Employees_EmployeeId",
                         column: x => x.EmployeeId,
                         principalTable: "Employees",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -689,17 +734,35 @@ namespace HRMS_Backend.Migrations
                     EmployeeId = table.Column<int>(type: "int", nullable: false),
                     Purpose = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ClaimedByEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    ClaimedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AssignedToEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletionNotes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    VerifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SalaryCertificateRequests", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_SalaryCertificateRequests_Employees_AssignedToEmployeeId",
+                        column: x => x.AssignedToEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SalaryCertificateRequests_Employees_ClaimedByEmployeeId",
+                        column: x => x.ClaimedByEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_SalaryCertificateRequests_Employees_EmployeeId",
                         column: x => x.EmployeeId,
                         principalTable: "Employees",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -708,6 +771,7 @@ namespace HRMS_Backend.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     DepartmentId = table.Column<int>(type: "int", nullable: false),
                     ManagerEmployeeId = table.Column<int>(type: "int", nullable: true),
@@ -762,6 +826,7 @@ namespace HRMS_Backend.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     SubDepartmentId = table.Column<int>(type: "int", nullable: false),
                     ManagerEmployeeId = table.Column<int>(type: "int", nullable: true),
@@ -810,10 +875,10 @@ namespace HRMS_Backend.Migrations
                     ContractEndDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     AppointmentDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     TransferType = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    TransferFromEntityId = table.Column<int>(type: "int", nullable: true),
+                    TransferFromOrganizationId = table.Column<int>(type: "int", nullable: true),
                     TransferStartDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     TransferEndDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    SecondmentToEntityId = table.Column<int>(type: "int", nullable: true),
+                    SecondmentToOrganizationId = table.Column<int>(type: "int", nullable: true),
                     SecondmentStartDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     SecondmentEndDate = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -833,18 +898,6 @@ namespace HRMS_Backend.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EmployeeAdministrativeDatas_Employees_SecondmentToEntityId",
-                        column: x => x.SecondmentToEntityId,
-                        principalTable: "Employees",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EmployeeAdministrativeDatas_Employees_TransferFromEntityId",
-                        column: x => x.TransferFromEntityId,
-                        principalTable: "Employees",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_EmployeeAdministrativeDatas_JobGrades_JobGradeId",
                         column: x => x.JobGradeId,
                         principalTable: "JobGrades",
@@ -856,6 +909,18 @@ namespace HRMS_Backend.Migrations
                         principalTable: "JobTitles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_EmployeeAdministrativeDatas_Organizations_SecondmentToOrganizationId",
+                        column: x => x.SecondmentToOrganizationId,
+                        principalTable: "Organizations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EmployeeAdministrativeDatas_Organizations_TransferFromOrganizationId",
+                        column: x => x.TransferFromOrganizationId,
+                        principalTable: "Organizations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_EmployeeAdministrativeDatas_Sections_SectionId",
                         column: x => x.SectionId,
@@ -1105,6 +1170,16 @@ namespace HRMS_Backend.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DataUpdateRequests_AssignedToEmployeeId",
+                table: "DataUpdateRequests",
+                column: "AssignedToEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DataUpdateRequests_ClaimedByEmployeeId",
+                table: "DataUpdateRequests",
+                column: "ClaimedByEmployeeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DataUpdateRequests_EmployeeId",
                 table: "DataUpdateRequests",
                 column: "EmployeeId");
@@ -1141,9 +1216,9 @@ namespace HRMS_Backend.Migrations
                 column: "JobTitleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EmployeeAdministrativeDatas_SecondmentToEntityId",
+                name: "IX_EmployeeAdministrativeDatas_SecondmentToOrganizationId",
                 table: "EmployeeAdministrativeDatas",
-                column: "SecondmentToEntityId");
+                column: "SecondmentToOrganizationId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAdministrativeDatas_SectionId",
@@ -1156,9 +1231,9 @@ namespace HRMS_Backend.Migrations
                 column: "SubDepartmentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EmployeeAdministrativeDatas_TransferFromEntityId",
+                name: "IX_EmployeeAdministrativeDatas_TransferFromOrganizationId",
                 table: "EmployeeAdministrativeDatas",
-                column: "TransferFromEntityId");
+                column: "TransferFromOrganizationId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAdministrativeDatas_WorkLocationId",
@@ -1250,6 +1325,16 @@ namespace HRMS_Backend.Migrations
                 column: "LeaveTypeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MaintenanceRequests_AssignedToEmployeeId",
+                table: "MaintenanceRequests",
+                column: "AssignedToEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MaintenanceRequests_ClaimedByEmployeeId",
+                table: "MaintenanceRequests",
+                column: "ClaimedByEmployeeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MaintenanceRequests_EmployeeId",
                 table: "MaintenanceRequests",
                 column: "EmployeeId");
@@ -1283,6 +1368,16 @@ namespace HRMS_Backend.Migrations
                 name: "IX_RolePermissions_PermissionId",
                 table: "RolePermissions",
                 column: "PermissionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryCertificateRequests_AssignedToEmployeeId",
+                table: "SalaryCertificateRequests",
+                column: "AssignedToEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryCertificateRequests_ClaimedByEmployeeId",
+                table: "SalaryCertificateRequests",
+                column: "ClaimedByEmployeeId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SalaryCertificateRequests_EmployeeId",
@@ -1381,12 +1476,28 @@ namespace HRMS_Backend.Migrations
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
+                name: "FK_DataUpdateRequests_Employees_AssignedToEmployeeId",
+                table: "DataUpdateRequests",
+                column: "AssignedToEmployeeId",
+                principalTable: "Employees",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_DataUpdateRequests_Employees_ClaimedByEmployeeId",
+                table: "DataUpdateRequests",
+                column: "ClaimedByEmployeeId",
+                principalTable: "Employees",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+
+            migrationBuilder.AddForeignKey(
                 name: "FK_DataUpdateRequests_Employees_EmployeeId",
                 table: "DataUpdateRequests",
                 column: "EmployeeId",
                 principalTable: "Employees",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+                onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Departments_Employees_ManagerEmployeeId",
@@ -1479,6 +1590,9 @@ namespace HRMS_Backend.Migrations
 
             migrationBuilder.DropTable(
                 name: "JobTitles");
+
+            migrationBuilder.DropTable(
+                name: "Organizations");
 
             migrationBuilder.DropTable(
                 name: "WorkLocations");
