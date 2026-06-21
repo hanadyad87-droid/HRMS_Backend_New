@@ -217,7 +217,7 @@ namespace HRMS_Backend.Controllers
                 "تحديث طلب تعديل البيانات",
                 "تم استلام طلبك وهو قيد التنفيذ الآن",
                 "claimed",
-                request.Id);
+                request.Id, "data_update");
 
             return Ok(new { Message = "تم استلام الطلب بنجاح" });
         }
@@ -259,7 +259,7 @@ namespace HRMS_Backend.Controllers
                 "تكليف جديد",
                 "تم تكليفك بتعديل بيانات موظف",
                 "assignment",
-                request.Id);
+                request.Id, "data_update");
 
             return Ok(new { Message = "تم تكليف " + assignedEmp.FullName + " بالتنفيذ" });
         }
@@ -328,7 +328,7 @@ namespace HRMS_Backend.Controllers
                 "تم تنفيذ طلب تعديل البيانات",
                 "تم تعديل بياناتك. يرجى التحقق والمصادقة.",
                 "verification",
-                request.Id);
+                request.Id, "data_update");
 
             return Ok(new { Message = "تم إعلان التنفيذ، في انتظار مصادقة صاحب الطلب" });
         }
@@ -366,7 +366,7 @@ namespace HRMS_Backend.Controllers
                         "تمت المصادقة",
                         "قام " + currentEmp.FullName + " بمصادقة تعديل البيانات",
                         "verified",
-                        request.Id);
+                        request.Id, "data_update");
                 }
 
                 return Ok(new { Message = "تمت المصادقة بنجاح" });
@@ -385,7 +385,7 @@ namespace HRMS_Backend.Controllers
                         "تم رفض المصادقة",
                         "لم يتم مصادقة تعديل البيانات من " + currentEmp.FullName,
                         "rejected",
-                        request.Id);
+                        request.Id, "data_update");
                 }
 
                 return Ok(new { Message = "تم إرجاع الطلب للتنفيذ" });
@@ -417,7 +417,7 @@ namespace HRMS_Backend.Controllers
                 "تم رفض طلب تعديل البيانات",
                 "سبب الرفض: " + (dto?.Reason ?? "غير محدد"),
                 "rejected",
-                request.Id);
+                request.Id, "data_update");
 
             return Ok(new { Message = "تم رفض الطلب" });
         }

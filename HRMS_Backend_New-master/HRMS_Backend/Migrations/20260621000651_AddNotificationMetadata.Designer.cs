@@ -4,6 +4,7 @@ using HRMS_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260621000651_AddNotificationMetadata")]
+    partial class AddNotificationMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -55,7 +58,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("UploadedByEmployeeId");
 
-                    b.ToTable("CompanyForms", (string)null);
+                    b.ToTable("CompanyForms");
                 });
 
             modelBuilder.Entity("Complaint", b =>
@@ -108,7 +111,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("Complaints", (string)null);
+                    b.ToTable("Complaints");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Announcement", b =>
@@ -147,7 +150,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("TargetDepartmentId");
 
-                    b.ToTable("Announcements", (string)null);
+                    b.ToTable("Announcements");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.AuditLog", b =>
@@ -201,7 +204,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EntityName", "EntityId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Bank", b =>
@@ -218,7 +221,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Banks", (string)null);
+                    b.ToTable("Banks");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.BankBranch", b =>
@@ -238,7 +241,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BankBranches", (string)null);
+                    b.ToTable("BankBranches");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.DataUpdateRequest", b =>
@@ -297,7 +300,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("DataUpdateRequests", (string)null);
+                    b.ToTable("DataUpdateRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Department", b =>
@@ -327,7 +330,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("PreviousManagerId");
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Employee", b =>
@@ -412,7 +415,7 @@ namespace HRMS_Backend.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.EmployeeAdministrativeData", b =>
@@ -504,7 +507,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("WorkLocationId");
 
-                    b.ToTable("EmployeeAdministrativeDatas", (string)null);
+                    b.ToTable("EmployeeAdministrativeDatas");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.EmployeeEducation", b =>
@@ -540,7 +543,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("QualificationId");
 
-                    b.ToTable("EmployeeEducations", (string)null);
+                    b.ToTable("EmployeeEducations");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.EmployeeFinancialData", b =>
@@ -614,7 +617,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("JobGradeId");
 
-                    b.ToTable("EmployeeFinancialDatas", (string)null);
+                    b.ToTable("EmployeeFinancialDatas");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.EmploymentStatus", b =>
@@ -631,7 +634,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EmploymentStatuses", (string)null);
+                    b.ToTable("EmploymentStatuses");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.ExitPermitRequest", b =>
@@ -678,7 +681,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("ExitPermitRequests", (string)null);
+                    b.ToTable("ExitPermitRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.FAQ", b =>
@@ -706,7 +709,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FAQs", (string)null);
+                    b.ToTable("FAQs");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.JobGrade", b =>
@@ -723,7 +726,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("JobGrades", (string)null);
+                    b.ToTable("JobGrades");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.JobTitle", b =>
@@ -740,7 +743,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("JobTitles", (string)null);
+                    b.ToTable("JobTitles");
 
                     b.HasData(
                         new
@@ -828,7 +831,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("LeaveTypeId");
 
-                    b.ToTable("LeaveRequests", (string)null);
+                    b.ToTable("LeaveRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.LeaveTypes", b =>
@@ -862,7 +865,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LeaveTypes", (string)null);
+                    b.ToTable("LeaveTypes");
 
                     b.HasData(
                         new
@@ -976,7 +979,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("MaintenanceRequests", (string)null);
+                    b.ToTable("MaintenanceRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.ManagerDelegation", b =>
@@ -1023,7 +1026,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("OriginalManagerId");
 
-                    b.ToTable("ManagerDelegations", (string)null);
+                    b.ToTable("ManagerDelegations");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.MaritalStatus", b =>
@@ -1040,7 +1043,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MaritalStatuses", (string)null);
+                    b.ToTable("MaritalStatuses");
 
                     b.HasData(
                         new
@@ -1103,7 +1106,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.OfficialHoliday", b =>
@@ -1123,7 +1126,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OfficialHolidays", (string)null);
+                    b.ToTable("OfficialHolidays");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Organization", b =>
@@ -1140,7 +1143,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Organizations", (string)null);
+                    b.ToTable("Organizations");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Permission", b =>
@@ -1157,7 +1160,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Permissions", (string)null);
+                    b.ToTable("Permissions");
 
                     b.HasData(
                         new
@@ -1290,7 +1293,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Qualifications", (string)null);
+                    b.ToTable("Qualifications");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.RolePermission", b =>
@@ -1305,7 +1308,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("RolePermissions");
 
                     b.HasData(
                         new
@@ -1563,7 +1566,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("SalaryCertificateRequests", (string)null);
+                    b.ToTable("SalaryCertificateRequests");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.Section", b =>
@@ -1598,7 +1601,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("SubDepartmentId");
 
-                    b.ToTable("Sections", (string)null);
+                    b.ToTable("Sections");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.TaskAssignment", b =>
@@ -1662,7 +1665,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("SectionId");
 
-                    b.ToTable("TaskAssignments", (string)null);
+                    b.ToTable("TaskAssignments");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.TaskComment", b =>
@@ -1693,7 +1696,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("TaskAssignmentId");
 
-                    b.ToTable("TaskComments", (string)null);
+                    b.ToTable("TaskComments");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.UserPermission", b =>
@@ -1717,7 +1720,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("UserPermissions", (string)null);
+                    b.ToTable("UserPermissions");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.UserRole", b =>
@@ -1732,7 +1735,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles", (string)null);
+                    b.ToTable("UserRoles");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.WorkLocation", b =>
@@ -1749,7 +1752,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkLocations", (string)null);
+                    b.ToTable("WorkLocations");
                 });
 
             modelBuilder.Entity("HRMS_Backend.Models.subDepartment", b =>
@@ -1784,7 +1787,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("PreviousManagerId");
 
-                    b.ToTable("SubDepartments", (string)null);
+                    b.ToTable("SubDepartments");
                 });
 
             modelBuilder.Entity("RequestSetting", b =>
@@ -1805,7 +1808,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasIndex("TargetSubDepartmentId");
 
-                    b.ToTable("RequestSettings", (string)null);
+                    b.ToTable("RequestSettings");
                 });
 
             modelBuilder.Entity("Role", b =>
@@ -1822,7 +1825,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Roles");
 
                     b.HasData(
                         new
@@ -1875,7 +1878,7 @@ namespace HRMS_Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("CompanyForm", b =>

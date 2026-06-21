@@ -238,7 +238,7 @@ namespace HRMS_Backend.Controllers
                 "تحديث طلب شهادة المرتب",
                 "تم استلام طلبك وهو قيد التنفيذ الآن",
                 "claimed",
-                request.Id);
+                request.Id, "salary_certificate");
 
             return Ok(new { Message = "تم استلام الطلب بنجاح" });
         }
@@ -284,7 +284,7 @@ namespace HRMS_Backend.Controllers
                         "تكليف جديد",
                         "تم تكليفك بإعداد شهادة المرتب: " + request.Purpose,
                         "assignment",
-                        request.Id);
+                        request.Id, "salary_certificate");
                 }
                 catch (Exception notifyEx)
                 {
@@ -332,7 +332,7 @@ namespace HRMS_Backend.Controllers
                 "تم إعداد شهادة المرتب",
                 "تم إعداد شهادة مرتبك. يرجى التحقق والمصادقة.",
                 "verification",
-                request.Id);
+                request.Id, "salary_certificate");
 
             return Ok(new { Message = "تم إعلان التنفيذ، في انتظار مصادقة صاحب الطلب" });
         }
@@ -370,7 +370,7 @@ namespace HRMS_Backend.Controllers
                         "تمت المصادقة",
                         "قام " + currentEmp.FullName + " بمصادقة طلب شهادة المرتب",
                         "verified",
-                        request.Id);
+                        request.Id, "salary_certificate");
                 }
 
                 return Ok(new { Message = "تمت المصادقة بنجاح" });
@@ -388,7 +388,7 @@ namespace HRMS_Backend.Controllers
                         "تم رفض المصادقة",
                         "لم يتم مصادقة طلب شهادة المرتب من " + currentEmp.FullName,
                         "rejected",
-                        request.Id);
+                        request.Id, "salary_certificate");
                 }
 
                 return Ok(new { Message = "تم إرجاع الطلب للتنفيذ" });
@@ -420,7 +420,7 @@ namespace HRMS_Backend.Controllers
                 "تم رفض طلب شهادة المرتب",
                 "سبب الرفض: " + (dto?.Reason ?? "غير محدد"),
                 "rejected",
-                request.Id);
+                request.Id, "salary_certificate");
 
             return Ok(new { Message = "تم رفض الطلب" });
         }

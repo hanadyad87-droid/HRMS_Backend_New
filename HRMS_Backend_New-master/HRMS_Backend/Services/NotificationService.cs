@@ -13,7 +13,7 @@ namespace HRMS_Backend.Services
         private readonly FCMHttpService _fcmService;
 
         public NotificationService(
-            ApplicationDbContext context, 
+            ApplicationDbContext context,
             IHubContext<NotificationHub> hub,
             FCMHttpService fcmService)
         {
@@ -24,10 +24,17 @@ namespace HRMS_Backend.Services
 
         public async Task NotifyEmployeeAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default)
         {
-            await NotifyEmployeeWithTypeAsync(employeeId, title, message, "general", null, cancellationToken);
+            await NotifyEmployeeWithTypeAsync(employeeId, title, message, "general", null, null, cancellationToken);
         }
 
-        public async Task NotifyEmployeeWithTypeAsync(int employeeId, string title, string message, string type, int? requestId = null, CancellationToken cancellationToken = default)
+        public async Task NotifyEmployeeWithTypeAsync(
+            int employeeId,
+            string title,
+            string message,
+            string type,
+            int? requestId = null,
+            string? entityType = null,
+            CancellationToken cancellationToken = default)
         {
             var notification = new Notification
             {
@@ -35,42 +42,45 @@ namespace HRMS_Backend.Services
                 Title = title,
                 Message = message,
                 CreatedAt = DateTime.Now,
-                IsRead = false
+                IsRead = false,
+                Type = type,
+                RequestId = requestId,
+                EntityType = entityType
             };
 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync(cancellationToken);
 
-            // إرسال إشعار عبر SignalR
+            var payload = new
+            {
+                notification.Id,
+                title = notification.Title,
+                message = notification.Message,
+                createdAt = notification.CreatedAt,
+                isRead = notification.IsRead,
+                type,
+                requestId,
+                entityType
+            };
+
             await _hub.Clients.Group(employeeId.ToString())
-                .SendAsync(
-                    "ReceiveNotification",
-                    new
-                    {
-                        notification.Id,
-                        title = notification.Title,
-                        message = notification.Message,
-                        createdAt = notification.CreatedAt,
-                        isRead = notification.IsRead,
-                        type,
-                        requestId
-                    },
-                    cancellationToken);
+                .SendAsync("ReceiveNotification", payload, cancellationToken);
 
-            // إرسال إشعار عبر Firebase Cloud Messaging (FCM)
-            await SendFirebasePushNotificationWithTypeAsync(employeeId, title, message, type, requestId, cancellationToken);
+            await SendFirebasePushNotificationWithTypeAsync(
+                employeeId, title, message, type, requestId, entityType, cancellationToken);
         }
 
-        private async Task SendFirebasePushNotificationAsync(int employeeId, string title, string message, CancellationToken cancellationToken = default)
-        {
-            await SendFirebasePushNotificationWithTypeAsync(employeeId, title, message, "general", null, cancellationToken);
-        }
-
-        private async Task SendFirebasePushNotificationWithTypeAsync(int employeeId, string title, string message, string type, int? requestId, CancellationToken cancellationToken = default)
+        private async Task SendFirebasePushNotificationWithTypeAsync(
+            int employeeId,
+            string title,
+            string message,
+            string type,
+            int? requestId,
+            string? entityType,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                // جلب FCM Token للموظف
                 var fcmToken = await _context.Employees
                     .AsNoTracking()
                     .Where(e => e.Id == employeeId)
@@ -83,12 +93,14 @@ namespace HRMS_Backend.Services
                     return;
                 }
 
-                // إرسال الإشعار باستخدام HTTP API
                 var data = new Dictionary<string, string>
                 {
                     { "notificationId", DateTime.Now.Ticks.ToString() },
                     { "type", type },
-                    { "requestId", requestId?.ToString() ?? "" }
+                    { "requestId", requestId?.ToString() ?? "" },
+                    { "entityType", entityType ?? "" },
+                    { "title", title },
+                    { "message", message }
                 };
 
                 await _fcmService.SendNotificationAsync(fcmToken, title, message, data, cancellationToken);

@@ -264,7 +264,7 @@ namespace HRMS_Backend.Controllers
                 "تحديث طلب الصيانة",
                 "تم استلام طلبك من " + user.Employee.FullName + " وهو قيد التنفيذ الآن",
                 "claimed",
-                request.Id);
+                request.Id, "maintenance");
 
             return Ok(new { Message = "تم استلام الطلب بنجاح" });
         }
@@ -319,7 +319,7 @@ namespace HRMS_Backend.Controllers
                         "تكليف جديد",
                         "تم تكليفك بصيانة جهاز: " + request.EquipmentName,
                         "assignment",
-                        request.Id);
+                        request.Id, "maintenance");
                 }
                 catch (Exception notifyEx)
                 {
@@ -370,7 +370,7 @@ namespace HRMS_Backend.Controllers
                 "تم تنفيذ طلب الصيانة",
                 "تم صيانة جهاز " + request.EquipmentName + ". يرجى التحقق والمصادقة.",
                 "verification",
-                request.Id);
+                request.Id, "maintenance");
 
             return Ok(new { Message = "تم إعلان التنفيذ، في انتظار مصادقة صاحب الطلب" });
         }
@@ -410,7 +410,7 @@ namespace HRMS_Backend.Controllers
                         "تمت المصادقة",
                         "قام " + currentEmp.FullName + " بمصادقة طلب الصيانة الخاص به",
                         "verified",
-                        request.Id);
+                        request.Id, "maintenance");
                 }
 
                 return Ok(new { Message = "تمت المصادقة بنجاح" });
@@ -430,7 +430,7 @@ namespace HRMS_Backend.Controllers
                         "تم رفض المصادقة",
                         "لم يتم مصادقة طلب الصيانة من " + currentEmp.FullName + ". يرجى مراجعة الطلب.",
                         "rejected",
-                        request.Id);
+                        request.Id, "maintenance");
                 }
 
                 return Ok(new { Message = "تم إرجاع الطلب للتنفيذ" });
@@ -464,7 +464,7 @@ namespace HRMS_Backend.Controllers
                 "تم رفض طلب الصيانة",
                 "سبب الرفض: " + (dto?.Reason ?? "غير محدد"),
                 "rejected",
-                request.Id);
+                request.Id, "maintenance");
 
             return Ok(new { Message = "تم رفض الطلب" });
         }

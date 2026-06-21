@@ -34,6 +34,13 @@ namespace HRMS_Backend.Services
             Dictionary<string, string>? data = null,
             CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(ServerKey) ||
+                ServerKey.Contains("YourServerKeyHere", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("FCM Server Key غير مُعدّ — تخطّي إرسال Push. أضف Firebase:ServerKey في appsettings أو FIREBASE_SERVER_KEY");
+                return false;
+            }
+
             try
             {
                 var message = new

@@ -119,10 +119,13 @@ namespace HRMS_Backend.Controllers
             _context.TaskAssignments.Add(task);
             await _context.SaveChangesAsync();
 
-            await _notifications.NotifyEmployeeAsync(
+            await _notifications.NotifyEmployeeWithTypeAsync(
                 dto.EmployeeId,
                 "تكليف مهمة جديدة",
-                $"تم تكليفك بمهمة: {dto.Title}");
+                $"تم تكليفك بمهمة: {dto.Title}",
+                "assignment",
+                task.Id,
+                "task");
 
             return Ok("تم إرسال التكليف بنجاح");
         }
@@ -210,10 +213,13 @@ namespace HRMS_Backend.Controllers
                 : $"تم رفض مهمتك: {task.Title}";
 
             await _context.SaveChangesAsync();
-            await _notifications.NotifyEmployeeAsync(
+            await _notifications.NotifyEmployeeWithTypeAsync(
                 task.EmployeeId,
                 "قرار المدير على مهمتك",
-                message);
+                message,
+                "task_decision",
+                task.Id,
+                "task");
 
             return Ok("تم تحديث القرار وإرسال الإشعار");
         }
@@ -282,10 +288,13 @@ namespace HRMS_Backend.Controllers
             int notifyEmployeeId = employeeId == task.EmployeeId ? task.AssignedByEmployeeId : task.EmployeeId;
 
             await _context.SaveChangesAsync();
-            await _notifications.NotifyEmployeeAsync(
+            await _notifications.NotifyEmployeeWithTypeAsync(
                 notifyEmployeeId,
                 "تعليق جديد على المهمة",
-                $"{employeeName}: {commentText}");
+                $"{employeeName}: {commentText}",
+                "task_comment",
+                taskId,
+                "task");
 
             return Ok("تم إضافة التعليق بنجاح");
         }
